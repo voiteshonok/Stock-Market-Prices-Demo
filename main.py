@@ -17,7 +17,7 @@ import altair as alt
 def main():
     st.title("Salary Predictor")
 
-    nav = st.sidebar.radio("Navigation", ["Home", "Prediction", "Contribute"])
+    nav = st.sidebar.radio("Navigation", ["Introduction", "Feature Engineering", "Prediction"])
     if nav == "Introduction":
 
         if st.checkbox("Show Table"):

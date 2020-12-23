@@ -1,17 +1,40 @@
-import urllib
-
 import streamlit as st
 import pandas as pd
 from matplotlib import pyplot as plt
-from plotly import graph_objs as go
-from sklearn.preprocessing import MinMaxScaler
-import xgboost as xgb
+import plotly as py
+import plotly.io as pio
+import plotly.graph_objs as go
+from plotly.subplots import make_subplots
 import time
 import numpy as np
 import altair as alt
 
+def get_data_frame_from_tigger(ETF_NAME):
+    df = pd.read_csv(ETF_NAME.lower() + '.us.txt', sep=',')
+    return df
 
-# Hello World
+def RSI(df, n=14):
+    close = df['Close']
+    delta = close.diff()
+    delta = delta[1:]
+    pricesUp = delta.copy()
+    pricesDown = delta.copy()
+    pricesUp[pricesUp < 0] = 0
+    pricesDown[pricesDown > 0] = 0
+    rollUp = pricesUp.rolling(n).mean()
+    rollDown = pricesDown.abs().rolling(n).mean()
+    rs = rollUp / rollDown
+    rsi = 100.0 - (100.0 / (1.0 + rs))
+    return rsi
+
+
+def stochastic(df, k, d):
+    df = df.copy()
+    low_min = df['Low'].rolling(window=k).min()
+    high_max = df['High'].rolling(window=k).max()
+    df['stoch_k'] = 100 * (df['Close'] - low_min) / (high_max - low_min)
+    df['stoch_d'] = df['stoch_k'].rolling(window=d).mean()
+    return df
 
 
 def main():
@@ -35,20 +58,131 @@ def main():
             st.pyplot()
 
     if nav == "Feature Engineering":
-        progress_bar = st.sidebar.progress(0)
-        status_text = st.sidebar.empty()
-        last_rows = np.random.randn(1, 1)
-        chart = st.line_chart(last_rows)
+        width = 750
+        height = 500
 
-        for i in range(1, 101):
-            new_rows = last_rows[-1, :] + np.random.randn(5, 1).cumsum(axis=0)
-            status_text.text("%i%% Complete" % i)
-            chart.add_rows(new_rows)
-            progress_bar.progress(i)
-            last_rows = new_rows
-            time.sleep(0.05)
+        st.header("Feature Engineering")
 
-        progress_bar.empty()
+        st.subheader("Historical ETF prices")
+        st.text("Data frame with historial prices for SPY fund consists of 3201 rows, each with 7 columns\n"
+                "which are: Date, Open/High/Low/Close prices, Volume count and Open Interest number. \n"
+                "OpenInt column has only 0 values, so I will just ignore it and focus on the rest\n"
+                "of information.In tables below you can see sample prices from the data frame and\n"
+                "also few statistics about each column e.g. min/max values, standard deviation etc.")
+
+        ETF_NAME = 'SPY'
+        df = get_data_frame_from_tigger(ETF_NAME)
+
+        if st.checkbox("Show Head"):
+            st.table(df.head())
+
+        if st.checkbox("Show Description"):
+            st.table(df.describe())
+
+        st.subheader("I. OHLC Chart")
+        st.text("An OHLC chart shows the open, high, low and close prices of a stock. It shows you how\n"
+                "the price was changing during a particular day and give you a sense of e.g. momentum or\n"
+                "volatility of stock. The tip of the lines represent the low and high values and\n"
+                "the horizontal segments represent the open and close values. Sample points where\n"
+                "the close value is higher (lower) then the open value are called increasing (decreasing).\n"
+                "By default, increasing items are drawn in green whereas decreasing are drawn in red.")
+
+        fig = go.Figure([go.Ohlc(x=df.Date,
+                                 open=df.Open,
+                                 high=df.High,
+                                 low=df.Low,
+                                 close=df.Close)])
+        fig.update(layout_xaxis_rangeslider_visible=False)
+        fig.update_layout(width=width, height=height)
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.subheader("II. Volume")
+        st.text("A volume is a very basic measure that shows a number of shares traded (bought, sold) over\n"
+                "a certain period of time e.g. daily. It is such a simple but often overlooked indicator.\n"
+                "Volume is so important because it basically represents the activity in stock trading.\n"
+                "Higher volume value indicates higher interests in trading a stock.")
+
+        fig = go.Figure(go.Bar(x=df.Date, y=df.Volume, name='Volume', marker_color='red'))
+        fig.update(layout_xaxis_rangeslider_visible=False)
+        fig.update_layout(width=width, height=height)
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.subheader("III. Moving Averages")
+        st.text("Moving Averages (MA) help to smooth out stock prices on a chart by filtering out\n"
+                "short-term price fluctuations. We calculate moving averages over a defined period\n"
+                "of time e.g. last 9, 50 or 200 days. There are two (most common) averages used in\n"
+                "technical analysis which are:\n"
+                "   •Simple Moving Average (SMA) - a simple average calculated over last N days\n"
+                "e.g. 50, 100 or 200\n"
+                "   •Exponential Moving Average (EMA) - an average where greater weights\n"
+                "are applied to recent prices")
+
+        df['EMA_9'] = df['Close'].ewm(5).mean().shift()
+        df['SMA_50'] = df['Close'].rolling(50).mean().shift()
+        df['SMA_100'] = df['Close'].rolling(100).mean().shift()
+        df['SMA_200'] = df['Close'].rolling(200).mean().shift()
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=df.Date, y=df.EMA_9, name='EMA 9'))
+        fig.add_trace(go.Scatter(x=df.Date, y=df.SMA_50, name='SMA 50'))
+        fig.add_trace(go.Scatter(x=df.Date, y=df.SMA_100, name='SMA 100'))
+        fig.add_trace(go.Scatter(x=df.Date, y=df.SMA_200, name='SMA 200'))
+        fig.add_trace(go.Scatter(x=df.Date, y=df.Close, name='Close', line_color='dimgray', opacity=0.3))
+        fig.update(layout_xaxis_rangeslider_visible=False)
+        fig.update_layout(width=width, height=height)
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.subheader("IV. RSI")
+        st.text("Another commonly used indicator is a Relative Strength Index (RSI) that indicates\n"
+                "magnitude of recent price changes. It can show that a stock is either\n"
+                "overbought or oversold. Typically RSI value of 70 and above signal that a stock\n"
+                "is becoming overbought/overvalued, meanwhile value of 30 and less can mean\n"
+                "that it is oversold. Full range of RSI is from 0 to 100.")
+
+        num_days = 365
+        df['RSI'] = RSI(df).fillna(0)
+        fig = go.Figure(go.Scatter(x=df.Date.tail(num_days), y=df.RSI.tail(num_days)))
+        fig.update(layout_xaxis_rangeslider_visible=False)
+        fig.update_layout(width=width, height=height)
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.subheader("V. MACDI")
+        st.text("Moving Average Convergence Divergence (MACD) is an indicator which shows\n"
+                "the relationship between two exponential moving averages i.e. 12-day and\n"
+                "26-day EMAs. We obtain MACD by substracting 26-day EMA (also called slow EMA)\n"
+                "from the 12-day EMA (or fast EMA).")
+
+        EMA_12 = pd.Series(df['Close'].ewm(span=12, min_periods=12).mean())
+        EMA_26 = pd.Series(df['Close'].ewm(span=26, min_periods=26).mean())
+        MACD = pd.Series(EMA_12 - EMA_26)
+        MACD_signal = pd.Series(MACD.ewm(span=9, min_periods=9).mean())
+
+        fig = make_subplots(rows=2, cols=1)
+        fig.add_trace(go.Scatter(x=df.Date, y=df.Close, name='Close'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.Date, y=EMA_12, name='EMA 12'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.Date, y=EMA_26, name='EMA 26'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.Date, y=MACD, name='MACD'), row=2, col=1)
+        fig.add_trace(go.Scatter(x=df.Date, y=MACD_signal, name='Signal line'), row=2, col=1)
+        fig.update(layout_xaxis_rangeslider_visible=False)
+        fig.update_layout(width=width, height=height)
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.subheader("VI. Stochastic")
+        st.text("The last technical tool in this notebook is a stochastic oscillator\n"
+                "is quite similar to RSI in the sense that it's values (also in range 0-100)\n"
+                "can indicate whether a stock is overbought/oversold or not. It is arguably\n"
+                "the most complicated indicator compared to the ones introduced earlier.\n"
+                "Stochastic can be calculated as:\n")
+        # Todo: Here must be latex
+
+        stochs = stochastic(df, k=14, d=3)
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=df.Date.tail(365), y=stochs.stoch_k.tail(365), name='K stochastic'))
+        fig.add_trace(go.Scatter(x=df.Date.tail(365), y=stochs.stoch_d.tail(365), name='D stochastic'))
+        fig.update(layout_xaxis_rangeslider_visible=False)
+        fig.update_layout(width=width, height=height)
+        st.plotly_chart(fig, use_container_width=True)
 
     if nav == "Prediction":
         @st.cache

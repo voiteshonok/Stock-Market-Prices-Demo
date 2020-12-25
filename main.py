@@ -38,25 +38,51 @@ def stochastic(df, k, d):
 
 
 def main():
-    st.title("Salary Predictor")
-
+    st.title("Stock Market Prices Demo")
     nav = st.sidebar.radio("Navigation", ["Introduction", "Feature Engineering", "Prediction"])
+
+    ETF_NAME = 'SPY'
+    df = get_data_frame_from_tigger(ETF_NAME)
+
     if nav == "Introduction":
+        width = 750
+        height = 500
 
-        if st.checkbox("Show Table"):
-            st.table(data)
+        st.header("Introduction")
 
-        graph = st.selectbox("What kind of Graph ? ", ["Non-Interactive", "Interactive"])
+        st.subheader("Description of the business task")
+        st.write("The stock market is known as a place where people can make a fortune if they can crack\n"
+                "the mantra to successfully predict stock prices. Though it’s impossible to predict\n"
+                "a stock price correctly most the time. So, the question arises, if humans can estimate\n"
+                "and consider all factors to predict a movement or a future value of a stock,\n"
+                "why can’t machines? Or, rephrasing, how can we make machines predict the value\n"
+                "for a stock? Scientists, analysts, and researchers all over the world have been trying\n"
+                "to devise a way to answer these questions for a long time now.")
 
-        val = st.slider("Filter data using years", 0, 20)
-        if graph == "Non-Interactive":
-            plt.figure(figsize=(10, 5))
-            plt.ylim(0)
-            plt.xlabel("Years of Experience")
-            plt.ylabel("Salary")
-            plt.tight_layout()
-            st.pyplot()
+        st.subheader("Dataset")
+        st.write("We will be using [Huge Stock Market Dataset](https://www.kaggle.com/borismarjanovic/price-volume-data-for-all-us-stocks-etfs).\n")
+        st.write("Context\n\n"
+                "High-quality financial data is expensive to acquire and is therefore rarely shared for free.\n"
+                "There is provided the full historical daily price and volume data for all US-based stocks\n"
+                "and ETFs trading on the NYSE, NASDAQ, and NYSE MKT. It's one of the best datasets of its kind\n"
+                "you can obtain.")
+        st.write("Content\n\n"
+                "The data (last updated 11/10/2017) is presented in CSV format as follows: Date, Open, High, Low,\n"
+                "Close, Volume, OpenInt. Note that prices have been adjusted for dividends and splits. There you can\n"
+                "see head of dataset:")
+        st.table(df.head())
+        st.write("Let's analyze the description. This is the structure. It has ‘Date’ as the index feature.\n"
+                "‘High’ denotes the highest value of the day. ‘Low’ denotes the lowest. ‘Open’ is the opening\n"
+                "Price and ‘Close’ is the closing for that Date. Now, sometimes close values are regulated\n"
+                "by the companies. So the final value is the ‘Adj Close’ which is the same as ‘Close’ Value\n"
+                "if the stock price is not regulated. ‘Volume’ is the amount of Stock of that company traded\n"
+                "on that date.")
 
+        st.subheader("Plotting dataset")
+        df_open = df[["Date", "Open", "High", "Low", "Close"]]
+        df_open.set_index("Date", inplace=True)
+        st.line_chart(df_open)
+        
     if nav == "Feature Engineering":
         width = 750
         height = 500
@@ -69,9 +95,6 @@ def main():
                 "OpenInt column has only 0 values, so I will just ignore it and focus on the rest\n"
                 "of information.In tables below you can see sample prices from the data frame and\n"
                 "also few statistics about each column e.g. min/max values, standard deviation etc.")
-
-        ETF_NAME = 'SPY'
-        df = get_data_frame_from_tigger(ETF_NAME)
 
         if st.checkbox("Show Head"):
             st.table(df.head())

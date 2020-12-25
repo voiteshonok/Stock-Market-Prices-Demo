@@ -8,9 +8,14 @@ from plotly.subplots import make_subplots
 import time
 import numpy as np
 import altair as alt
+import datetime
 
 def get_data_frame_from_tigger(ETF_NAME):
     df = pd.read_csv(ETF_NAME.lower() + '.us.txt', sep=',')
+    df["Date"] = pd.to_datetime(df["Date"])
+    df = df[(df["Date"] >= datetime.datetime(2010, 1, 1))]
+    df = df[(df["Date"] <= datetime.datetime(2017, 12, 31))]
+    df.set_index(pd.Series(range(0, len(df))), inplace=True)
     return df
 
 def RSI(df, n=14):
@@ -60,16 +65,18 @@ def main():
                 "to devise a way to answer these questions for a long time now.")
 
         st.subheader("Dataset")
-        st.write("We will be using [Huge Stock Market Dataset](https://www.kaggle.com/borismarjanovic/price-volume-data-for-all-us-stocks-etfs).\n")
-        st.write("Context\n\n"
+        st.write("We will be using [Huge Stock Market Dataset](https://www.kaggle.com/borismarjanovic/price-volume-data-for-all-us-stocks-etfs).\n"
+                "Thera are a lot of companies in this dataset, but we will use data for CERN, Yandex, ect...")
+        st.write("**_Context_**\n\n"
                 "High-quality financial data is expensive to acquire and is therefore rarely shared for free.\n"
                 "There is provided the full historical daily price and volume data for all US-based stocks\n"
                 "and ETFs trading on the NYSE, NASDAQ, and NYSE MKT. It's one of the best datasets of its kind\n"
                 "you can obtain.")
-        st.write("Content\n\n"
-                "The data (last updated 11/10/2017) is presented in CSV format as follows: Date, Open, High, Low,\n"
-                "Close, Volume, OpenInt. Note that prices have been adjusted for dividends and splits. There you can\n"
-                "see head of dataset:")
+        st.write("**_Content_**\n\n"
+                "The data is presented in CSV format as follows: Date, Open, High, Low,\n"
+                "Close, Volume, OpenInt. We will train model on data from 2010 to 2016 years,\n"
+                "prediction will be on 2017 year. Note that prices have been adjusted for dividends and splits.\n"
+                "To demonstrate data will select CERN. There you can see head of dataset:")
         st.table(df.head())
         st.write("Let's analyze the description. This is the structure. It has ‘Date’ as the index feature.\n"
                 "‘High’ denotes the highest value of the day. ‘Low’ denotes the lowest. ‘Open’ is the opening\n"
@@ -79,9 +86,11 @@ def main():
                 "on that date.")
 
         st.subheader("Plotting dataset")
-        df_open = df[["Date", "Open", "High", "Low", "Close"]]
-        df_open.set_index("Date", inplace=True)
-        st.line_chart(df_open)
+        st.write("On the chart below you can see you can watch how stock prices for CERN have changed in 2010.")
+        df_intro = df[["Date", "Open", "High", "Low", "Close"]]
+        df_intro = df_intro[(df["Date"] <= datetime.datetime(2011, 12, 31))]
+        df_intro.set_index("Date", inplace=True)
+        st.line_chart(df_intro)
         
     if nav == "Feature Engineering":
         width = 750

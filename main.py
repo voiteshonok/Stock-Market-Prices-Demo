@@ -1,15 +1,24 @@
-import streamlit as st
+import os
+import datetime
+import numpy as np
 import pandas as pd
+import time
+import datetime
+import joblib
+import xgboost
 from matplotlib import pyplot as plt
 import plotly as py
 import plotly.io as pio
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
-import time
-import numpy as np
+import streamlit as st
 import altair as alt
-import datetime
-import os
+
+
+DATA_PATH = 'data/'
+MODELS_PATH = 'models/'
+
+COMPANY_NAMES_TO_STOCK_NAMES = {'Cern': 'cern', 'IBM': 'ibm', 'Yandex': 'yndx'}
 
 
 def get_data_frame_from_tigger(ETF_NAME):
@@ -26,13 +35,13 @@ def RSI(df, n=14):
     close = df['Close']
     delta = close.diff()
     delta = delta[1:]
-    pricesUp = delta.copy()
-    pricesDown = delta.copy()
-    pricesUp[pricesUp < 0] = 0
-    pricesDown[pricesDown > 0] = 0
-    rollUp = pricesUp.rolling(n).mean()
-    rollDown = pricesDown.abs().rolling(n).mean()
-    rs = rollUp / rollDown
+    prices_up = delta.copy()
+    prices_down = delta.copy()
+    prices_up[prices_up < 0] = 0
+    prices_down[prices_down > 0] = 0
+    roll_up = prices_up.rolling(n).mean()
+    roll_down = prices_down.abs().rolling(n).mean()
+    rs = roll_up / roll_down
     rsi = 100.0 - (100.0 / (1.0 + rs))
     return rsi
 
@@ -44,6 +53,87 @@ def stochastic(df, k, d):
     df['stoch_k'] = 100 * (df['Close'] - low_min) / (high_max - low_min)
     df['stoch_d'] = df['stoch_k'].rolling(window=d).mean()
     return df
+
+
+def get_processed_test_data(df):
+    df['EMA_9'] = df['Close'].ewm(9).mean().shift()
+    df['SMA_5'] = df['Close'].rolling(5).mean().shift()
+    df['SMA_10'] = df['Close'].rolling(10).mean().shift()
+    df['SMA_15'] = df['Close'].rolling(15).mean().shift()
+    df['SMA_30'] = df['Close'].rolling(30).mean().shift()
+    df['RSI'] = RSI(df).fillna(0)
+
+    ema_12 = pd.Series(df['Close'].ewm(span=12, min_periods=12).mean())
+    ema_26 = pd.Series(df['Close'].ewm(span=26, min_periods=26).mean())
+    df['MACD'] = pd.Series(ema_12 - ema_26)
+    df['MACD_signal'] = pd.Series(df.MACD.ewm(span=9, min_periods=9).mean())
+    df['Close'] = df['Close'].shift(-1)
+    df = df.iloc[33:]
+    df = df[:-1]
+    df.index = range(len(df))
+
+    test_df = df[(df['Date'] >= datetime.datetime(2016, 11, 1))].copy()
+    test_df = test_df[(test_df['Date'] <= datetime.datetime(2017, 10, 31))]
+
+    drop_cols = ['Volume', 'Open', 'Low', 'High', 'OpenInt']
+    test_df = test_df.drop(drop_cols, 1)
+
+    return test_df
+
+def load_company_model(stock_name):
+    model = joblib.load(MODELS_PATH + stock_name + '_model.pkl')
+    return model
+
+
+def load_company_data(stock_name):
+    df = pd.read_csv(DATA_PATH + stock_name + '.us.txt', parse_dates=['Date'])
+    return df
+
+def load_data_for_predicted_prices_plot(stock_names: list):
+    data = pd.DataFrame(columns=['symbol', 'date', 'predicted_price', 'actual_price'])
+    for stock_name in stock_names:
+        model = load_company_model(stock_name)
+        test_data = load_company_data(stock_name)
+        processed_test_data = get_processed_test_data(test_data)
+        date = processed_test_data['Date'].dt.date
+        date = date.reset_index(drop=True)
+        x_test_data = processed_test_data.drop(['Date', 'Close'], axis=1)
+        predicted_data = pd.DataFrame(model.predict(x_test_data))
+        predicted_data = predicted_data.rename(columns={0: 'predicted_price'})
+        symbol_column = [stock_name.upper()] * predicted_data.shape[0]
+        predicted_data.insert(0, 'date', date)
+        predicted_data.insert(0, 'symbol', symbol_column)
+        data = pd.concat([data, predicted_data])
+    return data
+
+
+def load_data_for_predicted_actual_prices_plot(stock_name: str):
+    model = load_company_model(stock_name)
+    test_data = load_company_data(stock_name)
+    processed_test_data = get_processed_test_data(test_data)
+    date = processed_test_data['Date'].dt.date
+    date = date.reset_index(drop=True)
+    x_test_data = processed_test_data.drop(['Date', 'Close'], axis=1)
+    predicted_data = pd.DataFrame(model.predict(x_test_data))
+    predicted_data.rename(columns={0: 'price'}, inplace=True)
+    predicted_data['price_type'] = 'predicted_price'
+    predicted_data.insert(0, 'date', date)
+
+    actual_data = pd.DataFrame(processed_test_data['Close'])
+    actual_data['price_type'] = 'actual_price'
+    actual_data = actual_data.reset_index(drop=True)
+    actual_data.rename(columns={'Close': 'price'}, inplace=True)
+    actual_data.insert(0, 'date', date)
+    data = pd.concat([predicted_data, actual_data])
+
+    return data
+
+
+def create_list_of_stock_names(company_names: list):
+    stock_names = []
+    for company_name in company_names:
+        stock_names.append(COMPANY_NAMES_TO_STOCK_NAMES[company_name])
+    return stock_names
 
 
 def main():
@@ -227,47 +317,82 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
 
     if nav == "Prediction":
-        @st.cache
-        def get_UN_data():
-            AWS_BUCKET_URL = "https://streamlit-demo-data.s3-us-west-2.amazonaws.com"
-            df = pd.read_csv(AWS_BUCKET_URL + "/agri.csv.gz")
-            return df.set_index("Region")
+        st.title('Predict stock prices')
+        st.write("Here's our first attempt at using data to create a table:")
 
-        try:
-            df = get_UN_data()
-            countries = st.multiselect(
-                "Choose countries", list(df.index), ["China", "United States of America"]
-            )
-            if not countries:
-                st.error("Please select at least one country.")
-            else:
-                data = df.loc[countries]
-                data /= 1000000.0
-                st.write("### Gross Agricultural Production ($B)", data.sort_index())
+        st.write('Showing predicted prices for some companies')
 
-                data = data.T.reset_index()
-                data = pd.melt(data, id_vars=["index"]).rename(
-                    columns={"index": "year", "value": "Gross Agricultural Product ($B)"}
-                )
-                chart = (
-                    alt.Chart(data)
-                        .mark_area(opacity=0.3)
-                        .encode(
-                        x="year:T",
-                        y=alt.Y("Gross Agricultural Product ($B):Q", stack=None),
-                        color="Region:N",
-                    )
-                )
-                st.altair_chart(chart, use_container_width=True)
-        except urllib.error.URLError as e:
-            st.error(
-                """
-                **This demo requires internet access.**
-    
-                Connection error: %s
-            """
-                % e.reason
-            )
+        company_names = st.multiselect('Choose company name(s):', sorted(COMPANY_NAMES_TO_STOCK_NAMES.keys()),
+                                       default=[sorted(COMPANY_NAMES_TO_STOCK_NAMES.keys())[0]])
+        stock_names = create_list_of_stock_names(company_names)
+        data_predicted_prices = load_data_for_predicted_prices_plot(stock_names)
+
+        highlight_predicted_prices = alt.selection(type='single', on='mouseover',
+                                                   fields=['symbol'], nearest=True)
+
+        chart_predicted_prices = alt.Chart(data_predicted_prices).mark_line().encode(
+            x='date:T',
+            y='predicted_price:Q',
+            color='symbol:N',
+            strokeDash='symbol:N',
+            tooltip=['symbol', 'date', 'predicted_price'],
+        )
+
+        points_predicted_prices = chart_predicted_prices.mark_circle().encode(
+            opacity=alt.value(0)
+        ).add_selection(
+            highlight_predicted_prices
+        )
+
+        lines_predicted_prices = chart_predicted_prices.mark_line().encode(
+            size=alt.condition(~highlight_predicted_prices, alt.value(1), alt.value(3))
+        )
+
+        layer_predicted_prices = (points_predicted_prices + lines_predicted_prices).interactive()
+        st.altair_chart(layer_predicted_prices, use_container_width=True)
+
+        st.write('Showing actual and predicted prices for a company')
+
+        company_name = st.selectbox('Choose company name:', sorted(COMPANY_NAMES_TO_STOCK_NAMES.keys()))
+        stock_name = COMPANY_NAMES_TO_STOCK_NAMES[company_name]
+        data_predicted_actual_prices = load_data_for_predicted_actual_prices_plot(stock_name)
+
+        nearest_predicted_actual_prices = alt.selection(type='single', nearest=True, on='mouseover',
+                                                        fields=['date'], empty='none')
+
+        line = alt.Chart(data_predicted_actual_prices).mark_line(interpolate='basis').encode(
+            x='date:T',
+            y='price:Q',
+            color='price_type:N'
+        )
+
+        selectors_predicted_actual_prices = alt.Chart(data_predicted_actual_prices).mark_point().encode(
+            x='date:T',
+            opacity=alt.value(0),
+        ).add_selection(
+            nearest_predicted_actual_prices
+        )
+
+        points_predicted_actual_prices = line.mark_point().encode(
+            opacity=alt.condition(nearest_predicted_actual_prices, alt.value(1), alt.value(0))
+        )
+
+        text_predicted_actual_prices = line.mark_text(align='left', dx=10, dy=-10).encode(
+            text=alt.condition(nearest_predicted_actual_prices, 'price:Q', alt.value(' '))
+        )
+
+        rules_predicted_actual_prices = alt.Chart(data_predicted_actual_prices).mark_rule(color='#f63366').encode(
+            x='date:T',
+        ).transform_filter(
+            nearest_predicted_actual_prices
+        )
+
+        layer_predicted_actual_prices = alt.layer(
+            line, selectors_predicted_actual_prices, points_predicted_actual_prices,
+            rules_predicted_actual_prices, text_predicted_actual_prices
+        ).interactive()
+
+        st.altair_chart(layer_predicted_actual_prices, use_container_width=True)
 
 
 if __name__ == "__main__":

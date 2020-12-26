@@ -143,8 +143,6 @@ def main():
     nav = st.sidebar.radio("Navigation", ["Introduction", "Feature Engineering", "Prediction"])
 
     if nav == "Introduction":
-        ETF_NAME = 'CERN'
-        df = get_data_frame_from_tigger(ETF_NAME)
 
         st.header("Introduction")
 
@@ -168,17 +166,21 @@ def main():
                     Close, Volume. We will train the model on data from 2010 to 2016 because 
                     other data is way too old and has no significant information for the 2010s decade. 
                     The prediction will be built in 2017. Note that prices have been adjusted for dividends 
-                    and splits. To demonstrate how data looks like, we will select CERN. There you can see 
-                    the head of the dataset:''')
+                    and splits. To demonstrate how data looks like, you can select any of them.''')
 
+        option = st.selectbox("Choose company name:", ["Cern", "IBM", "Yandex", "Ford", "American Airlines Group"])
+        df = get_data_frame_from_tigger(COMPANY_NAMES_TO_STOCK_NAMES[option])
+
+        st.markdown('''There you can see the head of the dataset:''')
         st.dataframe(df.head())
+
         st.markdown('''Let's analyze the description. This is the structure. It has ‘Date’ as the index feature. 
                     ‘High’ denotes the highest value of the day. ‘Low’ denotes the lowest. ‘Open’ is the opening 
                     Price and ‘Close’ is the closing for that Date. Now, sometimes close values are regulated by the companies.
                     ‘Volume’ is the amount of Stock of that company traded on that date.''')
 
         st.subheader("Plotting dataset")
-        st.markdown("On the chart below you can see how CERN stock prices changed from 2010 to 2016.")
+        st.markdown("On the chart below you can see how companies stock prices changed from 2010 to 2016.")
         df_intro = df[["Date", "Open", "High", "Low", "Close"]]
         df_intro = df_intro[(df["Date"] <= datetime.datetime(2016, 12, 31))]
         df_intro.set_index("Date", inplace=True)
@@ -197,7 +199,7 @@ def main():
                see sample prices from the data frame and also few statistics about each column e.g. min/max values,
                 standard deviation etc.''')
 
-        option = st.selectbox("What company ? ", ["Cern", "IBM", "Yandex", "Ford", "American Airlines Group"])
+        option = st.selectbox("Choose company name:", ["Cern", "IBM", "Yandex", "Ford", "American Airlines Group"])
 
         df = get_data_frame_from_tigger(COMPANY_NAMES_TO_STOCK_NAMES[option])
 

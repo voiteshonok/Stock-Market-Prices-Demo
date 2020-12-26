@@ -21,12 +21,14 @@ MODELS_PATH = 'models/'
 COMPANY_NAMES_TO_STOCK_NAMES = {'Cern': 'cern', 'IBM': 'ibm', 'Yandex': 'yndx'}
 
 
+
 def get_data_frame_from_tigger(ETF_NAME):
     ETF_DIRECTORY = "data"
     df = pd.read_csv(os.path.join(ETF_DIRECTORY, ETF_NAME.lower() + '.us.txt'), sep=',')
     df["Date"] = pd.to_datetime(df["Date"])
     df = df[(df["Date"] >= datetime.datetime(2010, 1, 1))]
     df = df[(df["Date"] <= datetime.datetime(2017, 12, 31))]
+    df = df.drop(columns="OpenInt")
     df.set_index(pd.Series(range(0, len(df))), inplace=True)
     return df
 
@@ -147,37 +149,38 @@ def main():
         st.header("Introduction")
 
         st.subheader("Business task")
-        st.markdown("")
+
+        st.markdown('''The stock market is known as a place where people can make a fortune if they can crack the mantra
+                    to successfully predict stock prices. The main goal of this demo is trying to do it using machine learning.
+                    The reason is clear - it will be useful to every business that is associated with the stock market.''')
 
         st.subheader("Dataset")
         st.markdown('''We will use the [Huge Stock Market Dataset]
-            (https://www.kaggle.com/borismarjanovic/price-volume-data-for-all-us-stocks-etfs). 
-            High-quality financial data is expensive to acquire. Therefore, such data is rarely 
-            shared for free. The full historical daily prices and volume data for all US-based 
-            stocks and ETFs trading on the NYSE, NASDAQ, and NYSE MKT are provided. The dataset 
-            includes a lot of different companies. So, to show how our model works, we chose 
-            only some of them: Ford, Yandex, IBM, etc.''')
+                    (https://www.kaggle.com/borismarjanovic/price-volume-data-for-all-us-stocks-etfs). 
+                    High-quality financial data is expensive to acquire. Therefore, such data is rarely 
+                    shared for free. The full historical daily prices and volume data for all US-based 
+                    stocks and ETFs trading on the NYSE, NASDAQ, and NYSE MKT are provided. The dataset 
+                    includes a lot of different companies. So, to show how our model works, we chose 
+                    only some of them: Ford, Yandex, IBM, etc.''')
 
         st.subheader("Content")
         st.markdown('''The data is presented in CSV format as follows: Date, Open, High, Low, 
-            Close, Volume, OpenInt. We will train the model on data from 2010 to 2016 because 
-            other data is way too old and has no significant information for the 2010s decade. 
-            The prediction will be built in 2017. Note that prices have been adjusted for dividends 
-            and splits. To demonstrate how data looks like, we will select CERN. There you can see 
-            the head of the dataset:''')
+                    Close, Volume. We will train the model on data from 2010 to 2016 because 
+                    other data is way too old and has no significant information for the 2010s decade. 
+                    The prediction will be built in 2017. Note that prices have been adjusted for dividends 
+                    and splits. To demonstrate how data looks like, we will select CERN. There you can see 
+                    the head of the dataset:''')
 
         st.dataframe(df.head())
-        st.write("Let's analyze the description. This is the structure. It has ‘Date’ as the index feature.\n"
-                 "‘High’ denotes the highest value of the day. ‘Low’ denotes the lowest. ‘Open’ is the opening\n"
-                 "Price and ‘Close’ is the closing for that Date. Now, sometimes close values are regulated\n"
-                 "by the companies. So the final value is the ‘Adj Close’ which is the same as ‘Close’ Value\n"
-                 "if the stock price is not regulated. ‘Volume’ is the amount of Stock of that company traded\n"
-                 "on that date.")
+        st.markdown('''Let's analyze the description. This is the structure. It has ‘Date’ as the index feature. 
+                    ‘High’ denotes the highest value of the day. ‘Low’ denotes the lowest. ‘Open’ is the opening 
+                    Price and ‘Close’ is the closing for that Date. Now, sometimes close values are regulated by the companies.
+                    ‘Volume’ is the amount of Stock of that company traded on that date.''')
 
         st.subheader("Plotting dataset")
         st.markdown("On the chart below you can see how CERN stock prices changed from 2010 to 2016.")
         df_intro = df[["Date", "Open", "High", "Low", "Close"]]
-        df_intro = df_intro[(df["Date"] <= datetime.datetime(2011, 12, 31))]
+        df_intro = df_intro[(df["Date"] <= datetime.datetime(2016, 12, 31))]
         df_intro.set_index("Date", inplace=True)
         st.line_chart(df_intro)
 
@@ -226,6 +229,7 @@ def main():
              a certain period of time e.g. daily. It is such a simple but often overlooked indicator.
               *Volume* is so important because it basically represents the activity in stock trading.
                Higher volume value indicates higher interests in trading a stock.''')
+        
         st.markdown('*2012-2013*')
 
         # fig = go.Figure(go.Bar(x=df.Date, y=df.Volume, name='Volume', marker_color='red'))
@@ -305,6 +309,7 @@ def main():
                         lowest/highest prices traded in last 14 days.''')
         st.markdown('''This  **%𝐾**  stochastic is often referred as the *"slow stochastic indicator".
                         There is also a *"fast stochastic indicator" that can be obtained as:''')
+
         st.latex(r'''\%D = SMA_{3}(\%K)''')
 
         stochs = stochastic(df, k=14, d=3)

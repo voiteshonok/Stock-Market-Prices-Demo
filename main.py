@@ -17,12 +17,12 @@ import altair as alt
 DATA_PATH = 'data/'
 MODELS_PATH = 'models/'
 
-COMPANY_NAMES_TO_STOCK_NAMES = {'Cern': 'cern', 'IBM': 'ibm', 'Yandex': 'yndx'}
+COMPANY_NAMES_TO_STOCK_NAMES = {'Cern': 'cern', 'IBM': 'ibm', 'Yandex': 'yndx', 'Ford': 'f',
+                                'American Airlines Group': 'aal'}
 
 
 def get_data_frame_from_tigger(ETF_NAME):
-    ETF_DIRECTORY = "data"
-    df = pd.read_csv(os.path.join(ETF_DIRECTORY, ETF_NAME.lower() + '.us.txt'), sep=',')
+    df = pd.read_csv(os.path.join(DATA_PATH, ETF_NAME.lower() + '.us.txt'), sep=',')
     df["Date"] = pd.to_datetime(df["Date"])
     df = df[(df["Date"] >= datetime.datetime(2010, 1, 1))]
     df = df[(df["Date"] <= datetime.datetime(2017, 12, 31))]
@@ -197,9 +197,9 @@ def main():
                see sample prices from the data frame and also few statistics about each column e.g. min/max values,
                 standard deviation etc.''')
 
-        option = st.selectbox("What company ? ", ["CERN", "IBM", "YNDX", "F", "AAL"])
+        option = st.selectbox("What company ? ", ["Cern", "IBM", "Yandex", "Ford", "American Airlines Group"])
 
-        df = get_data_frame_from_tigger(option)
+        df = get_data_frame_from_tigger(COMPANY_NAMES_TO_STOCK_NAMES[option])
 
         if st.checkbox("Show Head"):
             st.dataframe(df.head())
@@ -232,7 +232,6 @@ def main():
 
         st.markdown('*2012-2013*')
 
-        # fig = go.Figure(go.Bar(x=df.Date, y=df.Volume, name='Volume', marker_color='red'))
         df['Date'] = pd.to_datetime(df['Date'])
         fig = go.Figure(
             go.Bar(x=df[(df['Date'].dt.year >= 2012) & (df['Date'].dt.year <= 2013)].Date,

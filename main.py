@@ -1,14 +1,8 @@
 import os
-import datetime
-import numpy as np
 import pandas as pd
-import time
 import datetime
 import joblib
 import xgboost
-from matplotlib import pyplot as plt
-import plotly as py
-import plotly.io as pio
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 import streamlit as st
@@ -17,8 +11,8 @@ import altair as alt
 DATA_PATH = 'data/'
 MODELS_PATH = 'models/'
 
-COMPANY_NAMES_TO_STOCK_NAMES = {'Cern': 'cern', 'IBM': 'ibm', 'Yandex': 'yndx', 'Ford': 'f',
-                                'American Airlines Group': 'aal'}
+COMPANY_NAMES_TO_STOCK_NAMES = {'Cern': 'cern', 'IBM': 'ibm', 'Yandex': 'yndx', 
+                                'Ford': 'f', 'American Airlines': 'aal'}
 
 
 def get_data_frame_from_tigger(ETF_NAME):
@@ -145,12 +139,17 @@ def main():
     if nav == "Introduction":
 
         st.header("Introduction")
-
-        st.subheader("Business task")
-
         st.markdown('''The stock market is known as a place where people can make a fortune if they can crack the mantra
-                    to successfully predict stock prices. The main goal of this demo is trying to do it using machine learning.
-                    The reason is clear - it will be useful to every business that is associated with the stock market.''')
+                    to successfully predict stock prices. The main goal of this demo is trying to do it using machine 
+                    learning. The reason is clear - it will be useful to every business that is associated with the 
+                    stock market.''')
+
+        st.subheader('''Business task''')
+        st.markdown('''Select the most promising companies based on the predicted growth in stock prices for 2017.''')
+
+        st.subheader('''Mathematical task''')
+        st.markdown('''Predict the stock price of a specific company based on the price history for 
+        the period from 2010 to 2016. Select the fastest-growing ones to the top.''')
 
         st.subheader("Dataset")
         st.markdown('''We will use the [Huge Stock Market Dataset]
@@ -199,7 +198,8 @@ def main():
                see sample prices from the data frame and also few statistics about each column e.g. min/max values,
                 standard deviation etc.''')
 
-        option = st.selectbox("Choose company name:", ["Cern", "IBM", "Yandex", "Ford", "American Airlines Group"])
+
+        option = st.selectbox("Choose company name:", sorted(COMPANY_NAMES_TO_STOCK_NAMES.keys()))
 
         df = get_data_frame_from_tigger(COMPANY_NAMES_TO_STOCK_NAMES[option])
 
@@ -323,10 +323,10 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
 
     if nav == "Prediction":
-        st.title('Predict stock prices')
-        st.write("Here's our first attempt at using data to create a table:")
+        st.header('Predict stock prices')
+        st.markdown("Let's see how trained models work for a range of companies.")
 
-        st.write('Showing predicted prices for some companies')
+        st.markdown('This plot shows predicted prices for companies you choose from 01-11-2016 to 31-10-2017.')
 
         company_names = st.multiselect('Choose company name(s):', sorted(COMPANY_NAMES_TO_STOCK_NAMES.keys()),
                                        default=[sorted(COMPANY_NAMES_TO_STOCK_NAMES.keys())[0]])
@@ -357,7 +357,8 @@ def main():
         layer_predicted_prices = (points_predicted_prices + lines_predicted_prices).interactive()
         st.altair_chart(layer_predicted_prices, use_container_width=True)
 
-        st.write('Showing actual and predicted prices for a company')
+        st.markdown('''This plot shows actual and predicted prices for a company you choose from 01-11-2016 to 
+        31-10-2017. You can easily compare actual and predicted prices for a day. ''')
 
         company_name = st.selectbox('Choose company name:', sorted(COMPANY_NAMES_TO_STOCK_NAMES.keys()))
         stock_name = COMPANY_NAMES_TO_STOCK_NAMES[company_name]

@@ -9,10 +9,12 @@ import time
 import numpy as np
 import altair as alt
 import datetime
+import os
 
 
 def get_data_frame_from_tigger(ETF_NAME):
-    df = pd.read_csv(ETF_NAME.lower() + '.us.txt', sep=',')
+    ETF_DIRECTORY = "data"
+    df = pd.read_csv(os.path.join(ETF_DIRECTORY, ETF_NAME.lower() + '.us.txt'), sep=',')
     df["Date"] = pd.to_datetime(df["Date"])
     df = df[(df["Date"] >= datetime.datetime(2010, 1, 1))]
     df = df[(df["Date"] <= datetime.datetime(2017, 12, 31))]
@@ -48,36 +50,33 @@ def main():
     st.title("Stock Market Prices Demo")
     nav = st.sidebar.radio("Navigation", ["Introduction", "Feature Engineering", "Prediction"])
 
-    ETF_NAME = 'SPY'
-    df = get_data_frame_from_tigger(ETF_NAME)
-
     if nav == "Introduction":
-        width = 750
-        height = 500
+        ETF_NAME = 'CERN'
+        df = get_data_frame_from_tigger(ETF_NAME)
 
-	st.header("Introduction")
+        st.header("Introduction")
 
         st.subheader("Business task")
         st.markdown("")
 
         st.subheader("Dataset")
         st.markdown('''We will use the [Huge Stock Market Dataset]
-        (https://www.kaggle.com/borismarjanovic/price-volume-data-for-all-us-stocks-etfs). 
-        High-quality financial data is expensive to acquire. Therefore, such data is rarely 
-        shared for free. The full historical daily prices and volume data for all US-based 
-        stocks and ETFs trading on the NYSE, NASDAQ, and NYSE MKT are provided. The dataset 
-        includes a lot of different companies. So, to show how our model works, we chose 
-        only some of them: Ford, Yandex, IBM, etc.''')
+            (https://www.kaggle.com/borismarjanovic/price-volume-data-for-all-us-stocks-etfs). 
+            High-quality financial data is expensive to acquire. Therefore, such data is rarely 
+            shared for free. The full historical daily prices and volume data for all US-based 
+            stocks and ETFs trading on the NYSE, NASDAQ, and NYSE MKT are provided. The dataset 
+            includes a lot of different companies. So, to show how our model works, we chose 
+            only some of them: Ford, Yandex, IBM, etc.''')
 
         st.subheader("Content")
         st.markdown('''The data is presented in CSV format as follows: Date, Open, High, Low, 
-        Close, Volume, OpenInt. We will train the model on data from 2010 to 2016 because 
-        other data is way too old and has no significant information for the 2010s decade. 
-        The prediction will be built in 2017. Note that prices have been adjusted for dividends 
-        and splits. To demonstrate how data looks like, we will select CERN. There you can see 
-        the head of the dataset:''')
+            Close, Volume, OpenInt. We will train the model on data from 2010 to 2016 because 
+            other data is way too old and has no significant information for the 2010s decade. 
+            The prediction will be built in 2017. Note that prices have been adjusted for dividends 
+            and splits. To demonstrate how data looks like, we will select CERN. There you can see 
+            the head of the dataset:''')
 
-        st.table(df.head())
+        st.dataframe(df.head())
         st.write("Let's analyze the description. This is the structure. It has ‘Date’ as the index feature.\n"
                  "‘High’ denotes the highest value of the day. ‘Low’ denotes the lowest. ‘Open’ is the opening\n"
                  "Price and ‘Close’ is the closing for that Date. Now, sometimes close values are regulated\n"
@@ -91,7 +90,7 @@ def main():
         df_intro = df_intro[(df["Date"] <= datetime.datetime(2011, 12, 31))]
         df_intro.set_index("Date", inplace=True)
         st.line_chart(df_intro)
-        
+
     if nav == "Feature Engineering":
         width = 1000
         height = 500
@@ -100,10 +99,14 @@ def main():
 
         st.subheader("Historical ETF prices")
         st.markdown('''Data frame with historial prices for fund consists of 7 columns
-         which are: *Date*, *Open/High/Low/Close* prices, *Volume* count and *Open Interest* number. *OpenInt column* has
-          only 0 values, so I will just ignore it and focus on the rest of information. In tables below you can
-           see sample prices from the data frame and also few statistics about each column e.g. min/max values,
-            standard deviation etc.''')
+             which are: *Date*, *Open/High/Low/Close* prices, *Volume* count and *Open Interest* number. *OpenInt column* has
+              only 0 values, so I will just ignore it and focus on the rest of information. In tables below you can
+               see sample prices from the data frame and also few statistics about each column e.g. min/max values,
+                standard deviation etc.''')
+
+        option = st.selectbox("What company ? ", ["CERN", "IBM", "YNDX"])
+
+        df = get_data_frame_from_tigger(option)
 
         if st.checkbox("Show Head"):
             st.dataframe(df.head())
@@ -113,11 +116,11 @@ def main():
 
         st.subheader("I. OHLC Chart")
         st.markdown('''An OHLC chart shows the *open, high, low and close* prices of a stock. It shows you how
-         the price was changing during a particular day and give you a sense of e.g. momentum or volatility of stock.
-          The tip of the lines represent the low and high values and the horizontal segments represent the open and
-           close values. Sample points where the close value is higher (lower) then the open value are called
-            increasing (decreasing). By default, increasing items are drawn in green whereas decreasing are drawn
-             in red.''')
+             the price was changing during a particular day and give you a sense of e.g. momentum or volatility of stock.
+              The tip of the lines represent the low and high values and the horizontal segments represent the open and
+               close values. Sample points where the close value is higher (lower) then the open value are called
+                increasing (decreasing). By default, increasing items are drawn in green whereas decreasing are drawn
+                 in red.''')
 
         fig = go.Figure([go.Ohlc(x=df.Date,
                                  open=df.Open,
@@ -130,9 +133,9 @@ def main():
 
         st.subheader("II. Volume")
         st.markdown('''A *volume* is a very basic measure that shows a number of shares traded (bought, sold) over
-         a certain period of time e.g. daily. It is such a simple but often overlooked indicator.
-          *Volume* is so important because it basically represents the activity in stock trading.
-           Higher volume value indicates higher interests in trading a stock.''')
+             a certain period of time e.g. daily. It is such a simple but often overlooked indicator.
+              *Volume* is so important because it basically represents the activity in stock trading.
+               Higher volume value indicates higher interests in trading a stock.''')
         st.markdown('*2012-2013*')
 
         # fig = go.Figure(go.Bar(x=df.Date, y=df.Volume, name='Volume', marker_color='red'))
@@ -147,11 +150,11 @@ def main():
 
         st.subheader("III. Moving Averages")
         st.markdown('''Moving Averages (MA) help to smooth out stock prices on a chart by filtering out
-                short-term price fluctuations. We calculate moving averages over a defined period
-                of time e.g. last 9, 50 or 200 days. There are two (most common) averages used in
-                technical analysis which are:''')
+                    short-term price fluctuations. We calculate moving averages over a defined period
+                    of time e.g. last 9, 50 or 200 days. There are two (most common) averages used in
+                    technical analysis which are:''')
         st.markdown('''\t•Simple Moving Average (SMA) - a simple average calculated over last N days e.g. 50, 100 or 200
-                \t•Exponential Moving Average (EMA) - an average where greater weights are applied to recent prices''')
+                    \t•Exponential Moving Average (EMA) - an average where greater weights are applied to recent prices''')
 
         df['EMA_9'] = df['Close'].ewm(5).mean().shift()
         df['SMA_50'] = df['Close'].rolling(50).mean().shift()
@@ -170,9 +173,9 @@ def main():
 
         st.subheader("IV. RSI")
         st.markdown('''Another commonly used indicator is a Relative Strength Index (RSI) that indicates magnitude
-         of recent price changes. It can show that a stock is either overbought or oversold.
-          Typically RSI value of 70 and above signal that a stock is becoming overbought/overvalued, meanwhile value
-           of 30 and less can mean that it is oversold. Full range of RSI is from 0 to 100.''')
+             of recent price changes. It can show that a stock is either overbought or oversold.
+              Typically RSI value of 70 and above signal that a stock is becoming overbought/overvalued, meanwhile value
+               of 30 and less can mean that it is oversold. Full range of RSI is from 0 to 100.''')
 
         num_days = 365
         df['RSI'] = RSI(df).fillna(0)
@@ -183,8 +186,8 @@ def main():
 
         st.subheader("V. MACDI")
         st.markdown('''Moving Average Convergence Divergence (MACD) is an indicator which shows the relationship
-         between two exponential moving averages i.e. 12-day and 26-day EMAs. We obtain MACD by substracting 26-day
-          EMA (also called slow EMA) from the 12-day EMA (or fast EMA).''')
+             between two exponential moving averages i.e. 12-day and 26-day EMAs. We obtain MACD by substracting 26-day
+              EMA (also called slow EMA) from the 12-day EMA (or fast EMA).''')
 
         EMA_12 = pd.Series(df['Close'].ewm(span=12, min_periods=12).mean())
         EMA_26 = pd.Series(df['Close'].ewm(span=26, min_periods=26).mean())
@@ -203,15 +206,15 @@ def main():
 
         st.subheader("VI. Stochastic")
         st.markdown('''The last technical tool in this notebook is a stochastic oscillator
-                            is quite similar to RSI in the sense that it's values (also in range 0-100)
-                            can indicate whether a stock is overbought/oversold or not. It is arguably
-                            the most complicated indicator compared to the ones introduced earlier.
-                            Stochastic can be calculated as:''')
+                                is quite similar to RSI in the sense that it's values (also in range 0-100)
+                                can indicate whether a stock is overbought/oversold or not. It is arguably
+                                the most complicated indicator compared to the ones introduced earlier.
+                                Stochastic can be calculated as:''')
         st.latex(r'''\%K = (\frac{C - L_{14}}{H_{14} - L_{14}}) \times 100''')
         st.markdown('''where: **C** is the most recent close price, **L** and **H** are the
-                    lowest/highest prices traded in last 14 days.''')
+                        lowest/highest prices traded in last 14 days.''')
         st.markdown('''This  **%𝐾**  stochastic is often referred as the *"slow stochastic indicator".
-                    There is also a *"fast stochastic indicator" that can be obtained as:''')
+                        There is also a *"fast stochastic indicator" that can be obtained as:''')
         st.latex(r'''\%D = SMA_{3}(\%K)''')
 
         stochs = stochastic(df, k=14, d=3)
@@ -260,7 +263,7 @@ def main():
             st.error(
                 """
                 **This demo requires internet access.**
-
+    
                 Connection error: %s
             """
                 % e.reason

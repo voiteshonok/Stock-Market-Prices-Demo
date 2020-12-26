@@ -55,40 +55,38 @@ def main():
         width = 750
         height = 500
 
-        st.header("Introduction")
+	st.header("Introduction")
 
-        st.subheader("Description of the business task")
-        st.write("The stock market is known as a place where people can make a fortune if they can crack\n"
-                "the mantra to successfully predict stock prices. Though it’s impossible to predict\n"
-                "a stock price correctly most the time. So, the question arises, if humans can estimate\n"
-                "and consider all factors to predict a movement or a future value of a stock,\n"
-                "why can’t machines? Or, rephrasing, how can we make machines predict the value\n"
-                "for a stock? Scientists, analysts, and researchers all over the world have been trying\n"
-                "to devise a way to answer these questions for a long time now.")
+        st.subheader("Business task")
+        st.markdown("")
 
         st.subheader("Dataset")
-        st.write("We will be using [Huge Stock Market Dataset](https://www.kaggle.com/borismarjanovic/price-volume-data-for-all-us-stocks-etfs).\n"
-                "Thera are a lot of companies in this dataset, but we will use data for CERN, Yandex, ect...")
-        st.write("**_Context_**\n\n"
-                "High-quality financial data is expensive to acquire and is therefore rarely shared for free.\n"
-                "There is provided the full historical daily price and volume data for all US-based stocks\n"
-                "and ETFs trading on the NYSE, NASDAQ, and NYSE MKT. It's one of the best datasets of its kind\n"
-                "you can obtain.")
-        st.write("**_Content_**\n\n"
-                "The data is presented in CSV format as follows: Date, Open, High, Low,\n"
-                "Close, Volume, OpenInt. We will train model on data from 2010 to 2016 years,\n"
-                "prediction will be on 2017 year. Note that prices have been adjusted for dividends and splits.\n"
-                "To demonstrate data will select CERN. There you can see head of dataset:")
+        st.markdown('''We will use the [Huge Stock Market Dataset]
+        (https://www.kaggle.com/borismarjanovic/price-volume-data-for-all-us-stocks-etfs). 
+        High-quality financial data is expensive to acquire. Therefore, such data is rarely 
+        shared for free. The full historical daily prices and volume data for all US-based 
+        stocks and ETFs trading on the NYSE, NASDAQ, and NYSE MKT are provided. The dataset 
+        includes a lot of different companies. So, to show how our model works, we chose 
+        only some of them: Ford, Yandex, IBM, etc.''')
+
+        st.subheader("Content")
+        st.markdown('''The data is presented in CSV format as follows: Date, Open, High, Low, 
+        Close, Volume, OpenInt. We will train the model on data from 2010 to 2016 because 
+        other data is way too old and has no significant information for the 2010s decade. 
+        The prediction will be built in 2017. Note that prices have been adjusted for dividends 
+        and splits. To demonstrate how data looks like, we will select CERN. There you can see 
+        the head of the dataset:''')
+
         st.table(df.head())
         st.write("Let's analyze the description. This is the structure. It has ‘Date’ as the index feature.\n"
-                "‘High’ denotes the highest value of the day. ‘Low’ denotes the lowest. ‘Open’ is the opening\n"
-                "Price and ‘Close’ is the closing for that Date. Now, sometimes close values are regulated\n"
-                "by the companies. So the final value is the ‘Adj Close’ which is the same as ‘Close’ Value\n"
-                "if the stock price is not regulated. ‘Volume’ is the amount of Stock of that company traded\n"
-                "on that date.")
+                 "‘High’ denotes the highest value of the day. ‘Low’ denotes the lowest. ‘Open’ is the opening\n"
+                 "Price and ‘Close’ is the closing for that Date. Now, sometimes close values are regulated\n"
+                 "by the companies. So the final value is the ‘Adj Close’ which is the same as ‘Close’ Value\n"
+                 "if the stock price is not regulated. ‘Volume’ is the amount of Stock of that company traded\n"
+                 "on that date.")
 
         st.subheader("Plotting dataset")
-        st.write("On the chart below you can see you can watch how stock prices for CERN have changed in 2010.")
+        st.markdown("On the chart below you can see how CERN stock prices changed from 2010 to 2016.")
         df_intro = df[["Date", "Open", "High", "Low", "Close"]]
         df_intro = df_intro[(df["Date"] <= datetime.datetime(2011, 12, 31))]
         df_intro.set_index("Date", inplace=True)

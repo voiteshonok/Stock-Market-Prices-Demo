@@ -233,11 +233,11 @@ def main():
               *Volume* is so important because it basically represents the activity in stock trading.
                Higher volume value indicates higher interests in trading a stock.''')
 
-        st.markdown('*2012-2013*')
+        st.markdown('*2014*')
 
         df['Date'] = pd.to_datetime(df['Date'])
         fig = go.Figure(
-            go.Bar(x=df[(df['Date'].dt.year >= 2012) & (df['Date'].dt.year <= 2013)].Date,
+            go.Bar(x=df[(df['Date'].dt.year == 2014)].Date,
                    y=df.Volume, name='Volume',
                    marker_color='red'))
         fig.update(layout_xaxis_rangeslider_visible=False)

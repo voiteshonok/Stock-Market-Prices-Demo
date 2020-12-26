@@ -14,12 +14,10 @@ from plotly.subplots import make_subplots
 import streamlit as st
 import altair as alt
 
-
 DATA_PATH = 'data/'
 MODELS_PATH = 'models/'
 
 COMPANY_NAMES_TO_STOCK_NAMES = {'Cern': 'cern', 'IBM': 'ibm', 'Yandex': 'yndx'}
-
 
 
 def get_data_frame_from_tigger(ETF_NAME):
@@ -82,6 +80,7 @@ def get_processed_test_data(df):
 
     return test_df
 
+
 def load_company_model(stock_name):
     model = joblib.load(MODELS_PATH + stock_name + '_model.pkl')
     return model
@@ -90,6 +89,7 @@ def load_company_model(stock_name):
 def load_company_data(stock_name):
     df = pd.read_csv(DATA_PATH + stock_name + '.us.txt', parse_dates=['Date'])
     return df
+
 
 def load_data_for_predicted_prices_plot(stock_names: list):
     data = pd.DataFrame(columns=['symbol', 'date', 'predicted_price', 'actual_price'])
@@ -197,7 +197,7 @@ def main():
                see sample prices from the data frame and also few statistics about each column e.g. min/max values,
                 standard deviation etc.''')
 
-        option = st.selectbox("What company ? ", ["CERN", "IBM", "YNDX"])
+        option = st.selectbox("What company ? ", ["CERN", "IBM", "YNDX", "F", "AAL"])
 
         df = get_data_frame_from_tigger(option)
 
@@ -229,7 +229,7 @@ def main():
              a certain period of time e.g. daily. It is such a simple but often overlooked indicator.
               *Volume* is so important because it basically represents the activity in stock trading.
                Higher volume value indicates higher interests in trading a stock.''')
-        
+
         st.markdown('*2012-2013*')
 
         # fig = go.Figure(go.Bar(x=df.Date, y=df.Volume, name='Volume', marker_color='red'))

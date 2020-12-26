@@ -16,6 +16,7 @@ def get_data_frame_from_tigger(ETF_NAME):
     df["Date"] = pd.to_datetime(df["Date"])
     df = df[(df["Date"] >= datetime.datetime(2010, 1, 1))]
     df = df[(df["Date"] <= datetime.datetime(2017, 12, 31))]
+    df = df.drop(columns="OpenInt")
     df.set_index(pd.Series(range(0, len(df))), inplace=True)
     return df
 
@@ -58,7 +59,9 @@ def main():
         st.header("Introduction")
 
         st.subheader("Business task")
-        st.markdown("")
+        st.markdown('''The stock market is known as a place where people can make a fortune if they can crack the mantra
+                    to successfully predict stock prices. The main goal of this demo is trying to do it using machine learning.
+                    The reason is clear - it will be useful to every business that is associated with the stock market.''')
 
         st.subheader("Dataset")
         st.markdown('''We will use the [Huge Stock Market Dataset]
@@ -71,13 +74,13 @@ def main():
 
         st.subheader("Content")
         st.markdown('''The data is presented in CSV format as follows: Date, Open, High, Low, 
-                    Close, Volume, OpenInt. We will train the model on data from 2010 to 2016 because 
+                    Close, Volume. We will train the model on data from 2010 to 2016 because 
                     other data is way too old and has no significant information for the 2010s decade. 
                     The prediction will be built in 2017. Note that prices have been adjusted for dividends 
                     and splits. To demonstrate how data looks like, we will select CERN. There you can see 
                     the head of the dataset:''')
 
-        st.table(df.head())
+        st.dataframe(df.head())
         st.markdown('''Let's analyze the description. This is the structure. It has ‘Date’ as the index feature. 
                     ‘High’ denotes the highest value of the day. ‘Low’ denotes the lowest. ‘Open’ is the opening 
                     Price and ‘Close’ is the closing for that Date. Now, sometimes close values are regulated by the companies.

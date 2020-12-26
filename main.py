@@ -11,8 +11,8 @@ import altair as alt
 DATA_PATH = 'data/'
 MODELS_PATH = 'models/'
 
-COMPANY_NAMES_TO_STOCK_NAMES = {'Cern': 'cern', 'IBM': 'ibm', 'Yandex': 'yndx', 'Ford': 'f',
-                                'American Airlines': 'aal'}
+COMPANY_NAMES_TO_STOCK_NAMES = {'Cern': 'cern', 'IBM': 'ibm', 'Yandex': 'yndx', 
+                                'Ford': 'f', 'American Airlines': 'aal'}
 
 
 def get_data_frame_from_tigger(ETF_NAME):

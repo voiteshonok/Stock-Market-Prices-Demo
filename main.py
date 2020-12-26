@@ -10,6 +10,7 @@ import numpy as np
 import altair as alt
 import datetime
 
+
 def get_data_frame_from_tigger(ETF_NAME):
     df = pd.read_csv(ETF_NAME.lower() + '.us.txt', sep=',')
     df["Date"] = pd.to_datetime(df["Date"])
@@ -17,6 +18,7 @@ def get_data_frame_from_tigger(ETF_NAME):
     df = df[(df["Date"] <= datetime.datetime(2017, 12, 31))]
     df.set_index(pd.Series(range(0, len(df))), inplace=True)
     return df
+
 
 def RSI(df, n=14):
     close = df['Close']
@@ -55,69 +57,65 @@ def main():
 
         st.header("Introduction")
 
-        st.subheader("Description of the business task")
-        st.write("The stock market is known as a place where people can make a fortune if they can crack\n"
-                "the mantra to successfully predict stock prices. Though it’s impossible to predict\n"
-                "a stock price correctly most the time. So, the question arises, if humans can estimate\n"
-                "and consider all factors to predict a movement or a future value of a stock,\n"
-                "why can’t machines? Or, rephrasing, how can we make machines predict the value\n"
-                "for a stock? Scientists, analysts, and researchers all over the world have been trying\n"
-                "to devise a way to answer these questions for a long time now.")
+        st.subheader("Business task")
+        st.markdown("")
 
         st.subheader("Dataset")
-        st.write("We will be using [Huge Stock Market Dataset](https://www.kaggle.com/borismarjanovic/price-volume-data-for-all-us-stocks-etfs).\n"
-                "Thera are a lot of companies in this dataset, but we will use data for CERN, Yandex, ect...")
-        st.write("**_Context_**\n\n"
-                "High-quality financial data is expensive to acquire and is therefore rarely shared for free.\n"
-                "There is provided the full historical daily price and volume data for all US-based stocks\n"
-                "and ETFs trading on the NYSE, NASDAQ, and NYSE MKT. It's one of the best datasets of its kind\n"
-                "you can obtain.")
-        st.write("**_Content_**\n\n"
-                "The data is presented in CSV format as follows: Date, Open, High, Low,\n"
-                "Close, Volume, OpenInt. We will train model on data from 2010 to 2016 years,\n"
-                "prediction will be on 2017 year. Note that prices have been adjusted for dividends and splits.\n"
-                "To demonstrate data will select CERN. There you can see head of dataset:")
+        st.markdown('''We will use the [Huge Stock Market Dataset]
+                    (https://www.kaggle.com/borismarjanovic/price-volume-data-for-all-us-stocks-etfs). 
+                    High-quality financial data is expensive to acquire. Therefore, such data is rarely 
+                    shared for free. The full historical daily prices and volume data for all US-based 
+                    stocks and ETFs trading on the NYSE, NASDAQ, and NYSE MKT are provided. The dataset 
+                    includes a lot of different companies. So, to show how our model works, we chose 
+                    only some of them: Ford, Yandex, IBM, etc.''')
+
+        st.subheader("Content")
+        st.markdown('''The data is presented in CSV format as follows: Date, Open, High, Low, 
+                    Close, Volume, OpenInt. We will train the model on data from 2010 to 2016 because 
+                    other data is way too old and has no significant information for the 2010s decade. 
+                    The prediction will be built in 2017. Note that prices have been adjusted for dividends 
+                    and splits. To demonstrate how data looks like, we will select CERN. There you can see 
+                    the head of the dataset:''')
+
         st.table(df.head())
-        st.write("Let's analyze the description. This is the structure. It has ‘Date’ as the index feature.\n"
-                "‘High’ denotes the highest value of the day. ‘Low’ denotes the lowest. ‘Open’ is the opening\n"
-                "Price and ‘Close’ is the closing for that Date. Now, sometimes close values are regulated\n"
-                "by the companies. So the final value is the ‘Adj Close’ which is the same as ‘Close’ Value\n"
-                "if the stock price is not regulated. ‘Volume’ is the amount of Stock of that company traded\n"
-                "on that date.")
+        st.markdown('''Let's analyze the description. This is the structure. It has ‘Date’ as the index feature. 
+                    ‘High’ denotes the highest value of the day. ‘Low’ denotes the lowest. ‘Open’ is the opening 
+                    Price and ‘Close’ is the closing for that Date. Now, sometimes close values are regulated by the companies.
+                    ‘Volume’ is the amount of Stock of that company traded on that date.''')
 
         st.subheader("Plotting dataset")
-        st.write("On the chart below you can see you can watch how stock prices for CERN have changed in 2010.")
+        st.markdown("On the chart below you can see how CERN stock prices changed from 2010 to 2016.")
         df_intro = df[["Date", "Open", "High", "Low", "Close"]]
-        df_intro = df_intro[(df["Date"] <= datetime.datetime(2011, 12, 31))]
+        df_intro = df_intro[(df["Date"] <= datetime.datetime(2016, 12, 31))]
         df_intro.set_index("Date", inplace=True)
         st.line_chart(df_intro)
         
     if nav == "Feature Engineering":
-        width = 750
+        width = 1000
         height = 500
 
         st.header("Feature Engineering")
 
         st.subheader("Historical ETF prices")
-        st.text("Data frame with historial prices for SPY fund consists of 3201 rows, each with 7 columns\n"
-                "which are: Date, Open/High/Low/Close prices, Volume count and Open Interest number. \n"
-                "OpenInt column has only 0 values, so I will just ignore it and focus on the rest\n"
-                "of information.In tables below you can see sample prices from the data frame and\n"
-                "also few statistics about each column e.g. min/max values, standard deviation etc.")
+        st.markdown('''Data frame with historial prices for fund consists of 7 columns
+         which are: *Date*, *Open/High/Low/Close* prices, *Volume* count and *Open Interest* number. *OpenInt column* has
+          only 0 values, so I will just ignore it and focus on the rest of information. In tables below you can
+           see sample prices from the data frame and also few statistics about each column e.g. min/max values,
+            standard deviation etc.''')
 
         if st.checkbox("Show Head"):
-            st.table(df.head())
+            st.dataframe(df.head())
 
         if st.checkbox("Show Description"):
-            st.table(df.describe())
+            st.dataframe(df.describe())
 
         st.subheader("I. OHLC Chart")
-        st.text("An OHLC chart shows the open, high, low and close prices of a stock. It shows you how\n"
-                "the price was changing during a particular day and give you a sense of e.g. momentum or\n"
-                "volatility of stock. The tip of the lines represent the low and high values and\n"
-                "the horizontal segments represent the open and close values. Sample points where\n"
-                "the close value is higher (lower) then the open value are called increasing (decreasing).\n"
-                "By default, increasing items are drawn in green whereas decreasing are drawn in red.")
+        st.markdown('''An OHLC chart shows the *open, high, low and close* prices of a stock. It shows you how
+         the price was changing during a particular day and give you a sense of e.g. momentum or volatility of stock.
+          The tip of the lines represent the low and high values and the horizontal segments represent the open and
+           close values. Sample points where the close value is higher (lower) then the open value are called
+            increasing (decreasing). By default, increasing items are drawn in green whereas decreasing are drawn
+             in red.''')
 
         fig = go.Figure([go.Ohlc(x=df.Date,
                                  open=df.Open,
@@ -129,25 +127,29 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("II. Volume")
-        st.text("A volume is a very basic measure that shows a number of shares traded (bought, sold) over\n"
-                "a certain period of time e.g. daily. It is such a simple but often overlooked indicator.\n"
-                "Volume is so important because it basically represents the activity in stock trading.\n"
-                "Higher volume value indicates higher interests in trading a stock.")
+        st.markdown('''A *volume* is a very basic measure that shows a number of shares traded (bought, sold) over
+         a certain period of time e.g. daily. It is such a simple but often overlooked indicator.
+          *Volume* is so important because it basically represents the activity in stock trading.
+           Higher volume value indicates higher interests in trading a stock.''')
+        st.markdown('*2012-2013*')
 
-        fig = go.Figure(go.Bar(x=df.Date, y=df.Volume, name='Volume', marker_color='red'))
+        # fig = go.Figure(go.Bar(x=df.Date, y=df.Volume, name='Volume', marker_color='red'))
+        df['Date'] = pd.to_datetime(df['Date'])
+        fig = go.Figure(
+            go.Bar(x=df[(df['Date'].dt.year >= 2012) & (df['Date'].dt.year <= 2013)].Date,
+                   y=df.Volume, name='Volume',
+                   marker_color='red'))
         fig.update(layout_xaxis_rangeslider_visible=False)
         fig.update_layout(width=width, height=height)
         st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("III. Moving Averages")
-        st.text("Moving Averages (MA) help to smooth out stock prices on a chart by filtering out\n"
-                "short-term price fluctuations. We calculate moving averages over a defined period\n"
-                "of time e.g. last 9, 50 or 200 days. There are two (most common) averages used in\n"
-                "technical analysis which are:\n"
-                "   •Simple Moving Average (SMA) - a simple average calculated over last N days\n"
-                "e.g. 50, 100 or 200\n"
-                "   •Exponential Moving Average (EMA) - an average where greater weights\n"
-                "are applied to recent prices")
+        st.markdown('''Moving Averages (MA) help to smooth out stock prices on a chart by filtering out
+                short-term price fluctuations. We calculate moving averages over a defined period
+                of time e.g. last 9, 50 or 200 days. There are two (most common) averages used in
+                technical analysis which are:''')
+        st.markdown('''\t•Simple Moving Average (SMA) - a simple average calculated over last N days e.g. 50, 100 or 200
+                \t•Exponential Moving Average (EMA) - an average where greater weights are applied to recent prices''')
 
         df['EMA_9'] = df['Close'].ewm(5).mean().shift()
         df['SMA_50'] = df['Close'].rolling(50).mean().shift()
@@ -165,11 +167,10 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("IV. RSI")
-        st.text("Another commonly used indicator is a Relative Strength Index (RSI) that indicates\n"
-                "magnitude of recent price changes. It can show that a stock is either\n"
-                "overbought or oversold. Typically RSI value of 70 and above signal that a stock\n"
-                "is becoming overbought/overvalued, meanwhile value of 30 and less can mean\n"
-                "that it is oversold. Full range of RSI is from 0 to 100.")
+        st.markdown('''Another commonly used indicator is a Relative Strength Index (RSI) that indicates magnitude
+         of recent price changes. It can show that a stock is either overbought or oversold.
+          Typically RSI value of 70 and above signal that a stock is becoming overbought/overvalued, meanwhile value
+           of 30 and less can mean that it is oversold. Full range of RSI is from 0 to 100.''')
 
         num_days = 365
         df['RSI'] = RSI(df).fillna(0)
@@ -179,10 +180,9 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("V. MACDI")
-        st.text("Moving Average Convergence Divergence (MACD) is an indicator which shows\n"
-                "the relationship between two exponential moving averages i.e. 12-day and\n"
-                "26-day EMAs. We obtain MACD by substracting 26-day EMA (also called slow EMA)\n"
-                "from the 12-day EMA (or fast EMA).")
+        st.markdown('''Moving Average Convergence Divergence (MACD) is an indicator which shows the relationship
+         between two exponential moving averages i.e. 12-day and 26-day EMAs. We obtain MACD by substracting 26-day
+          EMA (also called slow EMA) from the 12-day EMA (or fast EMA).''')
 
         EMA_12 = pd.Series(df['Close'].ewm(span=12, min_periods=12).mean())
         EMA_26 = pd.Series(df['Close'].ewm(span=26, min_periods=26).mean())
@@ -200,12 +200,17 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("VI. Stochastic")
-        st.text("The last technical tool in this notebook is a stochastic oscillator\n"
-                "is quite similar to RSI in the sense that it's values (also in range 0-100)\n"
-                "can indicate whether a stock is overbought/oversold or not. It is arguably\n"
-                "the most complicated indicator compared to the ones introduced earlier.\n"
-                "Stochastic can be calculated as:\n")
-        # Todo: Here must be latex
+        st.markdown('''The last technical tool in this notebook is a stochastic oscillator
+                            is quite similar to RSI in the sense that it's values (also in range 0-100)
+                            can indicate whether a stock is overbought/oversold or not. It is arguably
+                            the most complicated indicator compared to the ones introduced earlier.
+                            Stochastic can be calculated as:''')
+        st.latex(r'''\%K = (\frac{C - L_{14}}{H_{14} - L_{14}}) \times 100''')
+        st.markdown('''where: **C** is the most recent close price, **L** and **H** are the
+                    lowest/highest prices traded in last 14 days.''')
+        st.markdown('''This  **%𝐾**  stochastic is often referred as the *"slow stochastic indicator".
+                    There is also a *"fast stochastic indicator" that can be obtained as:''')
+        st.latex(r'''\%D = SMA_{3}(\%K)''')
 
         stochs = stochastic(df, k=14, d=3)
 

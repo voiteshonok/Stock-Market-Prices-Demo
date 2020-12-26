@@ -12,7 +12,8 @@ DATA_PATH = 'data/'
 MODELS_PATH = 'models/'
 
 COMPANY_NAMES_TO_STOCK_NAMES = {'Cern': 'cern', 'IBM': 'ibm', 'Yandex': 'yndx', 
-                                'Ford': 'f', 'American Airlines': 'aal'}
+                                'Ford': 'f', 'American Airlines': 'aal', 'Sony': 'sne',
+                                'Plug': 'plug'}
 
 
 def get_data_frame_from_tigger(ETF_NAME):
@@ -339,7 +340,7 @@ def main():
         chart_predicted_prices = alt.Chart(data_predicted_prices).mark_line().encode(
             x='date:T',
             y='predicted_price:Q',
-            color='symbol:N',
+            color=alt.Color('symbol:N', scale=alt.Scale(scheme='dark2')),
             strokeDash='symbol:N',
             tooltip=['symbol', 'date', 'predicted_price'],
         )
@@ -370,7 +371,7 @@ def main():
         line = alt.Chart(data_predicted_actual_prices).mark_line(interpolate='basis').encode(
             x='date:T',
             y='price:Q',
-            color='price_type:N'
+            color=alt.Color('price_type:N', scale=alt.Scale(scheme='plasma'))
         )
 
         selectors_predicted_actual_prices = alt.Chart(data_predicted_actual_prices).mark_point().encode(

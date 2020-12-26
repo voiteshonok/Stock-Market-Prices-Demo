@@ -1,18 +1,30 @@
-import streamlit as st
+import os
+import datetime
+import numpy as np
 import pandas as pd
+import time
+import datetime
+import joblib
+import xgboost
 from matplotlib import pyplot as plt
 import plotly as py
 import plotly.io as pio
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
-import time
-import numpy as np
+import streamlit as st
 import altair as alt
-import datetime
+
+
+DATA_PATH = 'data/'
+MODELS_PATH = 'models/'
+
+COMPANY_NAMES_TO_STOCK_NAMES = {'Cern': 'cern', 'IBM': 'ibm', 'Yandex': 'yndx'}
+
 
 
 def get_data_frame_from_tigger(ETF_NAME):
-    df = pd.read_csv(ETF_NAME.lower() + '.us.txt', sep=',')
+    ETF_DIRECTORY = "data"
+    df = pd.read_csv(os.path.join(ETF_DIRECTORY, ETF_NAME.lower() + '.us.txt'), sep=',')
     df["Date"] = pd.to_datetime(df["Date"])
     df = df[(df["Date"] >= datetime.datetime(2010, 1, 1))]
     df = df[(df["Date"] <= datetime.datetime(2017, 12, 31))]
@@ -25,13 +37,13 @@ def RSI(df, n=14):
     close = df['Close']
     delta = close.diff()
     delta = delta[1:]
-    pricesUp = delta.copy()
-    pricesDown = delta.copy()
-    pricesUp[pricesUp < 0] = 0
-    pricesDown[pricesDown > 0] = 0
-    rollUp = pricesUp.rolling(n).mean()
-    rollDown = pricesDown.abs().rolling(n).mean()
-    rs = rollUp / rollDown
+    prices_up = delta.copy()
+    prices_down = delta.copy()
+    prices_up[prices_up < 0] = 0
+    prices_down[prices_down > 0] = 0
+    roll_up = prices_up.rolling(n).mean()
+    roll_down = prices_down.abs().rolling(n).mean()
+    rs = roll_up / roll_down
     rsi = 100.0 - (100.0 / (1.0 + rs))
     return rsi
 
@@ -45,20 +57,99 @@ def stochastic(df, k, d):
     return df
 
 
+def get_processed_test_data(df):
+    df['EMA_9'] = df['Close'].ewm(9).mean().shift()
+    df['SMA_5'] = df['Close'].rolling(5).mean().shift()
+    df['SMA_10'] = df['Close'].rolling(10).mean().shift()
+    df['SMA_15'] = df['Close'].rolling(15).mean().shift()
+    df['SMA_30'] = df['Close'].rolling(30).mean().shift()
+    df['RSI'] = RSI(df).fillna(0)
+
+    ema_12 = pd.Series(df['Close'].ewm(span=12, min_periods=12).mean())
+    ema_26 = pd.Series(df['Close'].ewm(span=26, min_periods=26).mean())
+    df['MACD'] = pd.Series(ema_12 - ema_26)
+    df['MACD_signal'] = pd.Series(df.MACD.ewm(span=9, min_periods=9).mean())
+    df['Close'] = df['Close'].shift(-1)
+    df = df.iloc[33:]
+    df = df[:-1]
+    df.index = range(len(df))
+
+    test_df = df[(df['Date'] >= datetime.datetime(2016, 11, 1))].copy()
+    test_df = test_df[(test_df['Date'] <= datetime.datetime(2017, 10, 31))]
+
+    drop_cols = ['Volume', 'Open', 'Low', 'High', 'OpenInt']
+    test_df = test_df.drop(drop_cols, 1)
+
+    return test_df
+
+def load_company_model(stock_name):
+    model = joblib.load(MODELS_PATH + stock_name + '_model.pkl')
+    return model
+
+
+def load_company_data(stock_name):
+    df = pd.read_csv(DATA_PATH + stock_name + '.us.txt', parse_dates=['Date'])
+    return df
+
+def load_data_for_predicted_prices_plot(stock_names: list):
+    data = pd.DataFrame(columns=['symbol', 'date', 'predicted_price', 'actual_price'])
+    for stock_name in stock_names:
+        model = load_company_model(stock_name)
+        test_data = load_company_data(stock_name)
+        processed_test_data = get_processed_test_data(test_data)
+        date = processed_test_data['Date'].dt.date
+        date = date.reset_index(drop=True)
+        x_test_data = processed_test_data.drop(['Date', 'Close'], axis=1)
+        predicted_data = pd.DataFrame(model.predict(x_test_data))
+        predicted_data = predicted_data.rename(columns={0: 'predicted_price'})
+        symbol_column = [stock_name.upper()] * predicted_data.shape[0]
+        predicted_data.insert(0, 'date', date)
+        predicted_data.insert(0, 'symbol', symbol_column)
+        data = pd.concat([data, predicted_data])
+    return data
+
+
+def load_data_for_predicted_actual_prices_plot(stock_name: str):
+    model = load_company_model(stock_name)
+    test_data = load_company_data(stock_name)
+    processed_test_data = get_processed_test_data(test_data)
+    date = processed_test_data['Date'].dt.date
+    date = date.reset_index(drop=True)
+    x_test_data = processed_test_data.drop(['Date', 'Close'], axis=1)
+    predicted_data = pd.DataFrame(model.predict(x_test_data))
+    predicted_data.rename(columns={0: 'price'}, inplace=True)
+    predicted_data['price_type'] = 'predicted_price'
+    predicted_data.insert(0, 'date', date)
+
+    actual_data = pd.DataFrame(processed_test_data['Close'])
+    actual_data['price_type'] = 'actual_price'
+    actual_data = actual_data.reset_index(drop=True)
+    actual_data.rename(columns={'Close': 'price'}, inplace=True)
+    actual_data.insert(0, 'date', date)
+    data = pd.concat([predicted_data, actual_data])
+
+    return data
+
+
+def create_list_of_stock_names(company_names: list):
+    stock_names = []
+    for company_name in company_names:
+        stock_names.append(COMPANY_NAMES_TO_STOCK_NAMES[company_name])
+    return stock_names
+
+
 def main():
     st.title("Stock Market Prices Demo")
     nav = st.sidebar.radio("Navigation", ["Introduction", "Feature Engineering", "Prediction"])
 
-    ETF_NAME = 'SPY'
-    df = get_data_frame_from_tigger(ETF_NAME)
-
     if nav == "Introduction":
-        width = 750
-        height = 500
+        ETF_NAME = 'CERN'
+        df = get_data_frame_from_tigger(ETF_NAME)
 
         st.header("Introduction")
 
         st.subheader("Business task")
+
         st.markdown('''The stock market is known as a place where people can make a fortune if they can crack the mantra
                     to successfully predict stock prices. The main goal of this demo is trying to do it using machine learning.
                     The reason is clear - it will be useful to every business that is associated with the stock market.''')
@@ -92,7 +183,7 @@ def main():
         df_intro = df_intro[(df["Date"] <= datetime.datetime(2016, 12, 31))]
         df_intro.set_index("Date", inplace=True)
         st.line_chart(df_intro)
-        
+
     if nav == "Feature Engineering":
         width = 1000
         height = 500
@@ -101,10 +192,14 @@ def main():
 
         st.subheader("Historical ETF prices")
         st.markdown('''Data frame with historial prices for fund consists of 7 columns
-         which are: *Date*, *Open/High/Low/Close* prices, *Volume* count and *Open Interest* number. *OpenInt column* has
-          only 0 values, so I will just ignore it and focus on the rest of information. In tables below you can
-           see sample prices from the data frame and also few statistics about each column e.g. min/max values,
-            standard deviation etc.''')
+             which are: *Date*, *Open/High/Low/Close* prices, *Volume* count and *Open Interest* number. *OpenInt column* has
+              only 0 values, so I will just ignore it and focus on the rest of information. In tables below you can
+               see sample prices from the data frame and also few statistics about each column e.g. min/max values,
+                standard deviation etc.''')
+
+        option = st.selectbox("What company ? ", ["CERN", "IBM", "YNDX"])
+
+        df = get_data_frame_from_tigger(option)
 
         if st.checkbox("Show Head"):
             st.dataframe(df.head())
@@ -114,11 +209,11 @@ def main():
 
         st.subheader("I. OHLC Chart")
         st.markdown('''An OHLC chart shows the *open, high, low and close* prices of a stock. It shows you how
-         the price was changing during a particular day and give you a sense of e.g. momentum or volatility of stock.
-          The tip of the lines represent the low and high values and the horizontal segments represent the open and
-           close values. Sample points where the close value is higher (lower) then the open value are called
-            increasing (decreasing). By default, increasing items are drawn in green whereas decreasing are drawn
-             in red.''')
+             the price was changing during a particular day and give you a sense of e.g. momentum or volatility of stock.
+              The tip of the lines represent the low and high values and the horizontal segments represent the open and
+               close values. Sample points where the close value is higher (lower) then the open value are called
+                increasing (decreasing). By default, increasing items are drawn in green whereas decreasing are drawn
+                 in red.''')
 
         fig = go.Figure([go.Ohlc(x=df.Date,
                                  open=df.Open,
@@ -131,9 +226,10 @@ def main():
 
         st.subheader("II. Volume")
         st.markdown('''A *volume* is a very basic measure that shows a number of shares traded (bought, sold) over
-         a certain period of time e.g. daily. It is such a simple but often overlooked indicator.
-          *Volume* is so important because it basically represents the activity in stock trading.
-           Higher volume value indicates higher interests in trading a stock.''')
+             a certain period of time e.g. daily. It is such a simple but often overlooked indicator.
+              *Volume* is so important because it basically represents the activity in stock trading.
+               Higher volume value indicates higher interests in trading a stock.''')
+        
         st.markdown('*2012-2013*')
 
         # fig = go.Figure(go.Bar(x=df.Date, y=df.Volume, name='Volume', marker_color='red'))
@@ -148,11 +244,11 @@ def main():
 
         st.subheader("III. Moving Averages")
         st.markdown('''Moving Averages (MA) help to smooth out stock prices on a chart by filtering out
-                short-term price fluctuations. We calculate moving averages over a defined period
-                of time e.g. last 9, 50 or 200 days. There are two (most common) averages used in
-                technical analysis which are:''')
+                    short-term price fluctuations. We calculate moving averages over a defined period
+                    of time e.g. last 9, 50 or 200 days. There are two (most common) averages used in
+                    technical analysis which are:''')
         st.markdown('''\t•Simple Moving Average (SMA) - a simple average calculated over last N days e.g. 50, 100 or 200
-                \t•Exponential Moving Average (EMA) - an average where greater weights are applied to recent prices''')
+                    \t•Exponential Moving Average (EMA) - an average where greater weights are applied to recent prices''')
 
         df['EMA_9'] = df['Close'].ewm(5).mean().shift()
         df['SMA_50'] = df['Close'].rolling(50).mean().shift()
@@ -171,9 +267,9 @@ def main():
 
         st.subheader("IV. RSI")
         st.markdown('''Another commonly used indicator is a Relative Strength Index (RSI) that indicates magnitude
-         of recent price changes. It can show that a stock is either overbought or oversold.
-          Typically RSI value of 70 and above signal that a stock is becoming overbought/overvalued, meanwhile value
-           of 30 and less can mean that it is oversold. Full range of RSI is from 0 to 100.''')
+             of recent price changes. It can show that a stock is either overbought or oversold.
+              Typically RSI value of 70 and above signal that a stock is becoming overbought/overvalued, meanwhile value
+               of 30 and less can mean that it is oversold. Full range of RSI is from 0 to 100.''')
 
         num_days = 365
         df['RSI'] = RSI(df).fillna(0)
@@ -184,8 +280,8 @@ def main():
 
         st.subheader("V. MACDI")
         st.markdown('''Moving Average Convergence Divergence (MACD) is an indicator which shows the relationship
-         between two exponential moving averages i.e. 12-day and 26-day EMAs. We obtain MACD by substracting 26-day
-          EMA (also called slow EMA) from the 12-day EMA (or fast EMA).''')
+             between two exponential moving averages i.e. 12-day and 26-day EMAs. We obtain MACD by substracting 26-day
+              EMA (also called slow EMA) from the 12-day EMA (or fast EMA).''')
 
         EMA_12 = pd.Series(df['Close'].ewm(span=12, min_periods=12).mean())
         EMA_26 = pd.Series(df['Close'].ewm(span=26, min_periods=26).mean())
@@ -204,15 +300,16 @@ def main():
 
         st.subheader("VI. Stochastic")
         st.markdown('''The last technical tool in this notebook is a stochastic oscillator
-                            is quite similar to RSI in the sense that it's values (also in range 0-100)
-                            can indicate whether a stock is overbought/oversold or not. It is arguably
-                            the most complicated indicator compared to the ones introduced earlier.
-                            Stochastic can be calculated as:''')
+                                is quite similar to RSI in the sense that it's values (also in range 0-100)
+                                can indicate whether a stock is overbought/oversold or not. It is arguably
+                                the most complicated indicator compared to the ones introduced earlier.
+                                Stochastic can be calculated as:''')
         st.latex(r'''\%K = (\frac{C - L_{14}}{H_{14} - L_{14}}) \times 100''')
         st.markdown('''where: **C** is the most recent close price, **L** and **H** are the
-                    lowest/highest prices traded in last 14 days.''')
+                        lowest/highest prices traded in last 14 days.''')
         st.markdown('''This  **%𝐾**  stochastic is often referred as the *"slow stochastic indicator".
-                    There is also a *"fast stochastic indicator" that can be obtained as:''')
+                        There is also a *"fast stochastic indicator" that can be obtained as:''')
+
         st.latex(r'''\%D = SMA_{3}(\%K)''')
 
         stochs = stochastic(df, k=14, d=3)
@@ -225,47 +322,82 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
 
     if nav == "Prediction":
-        @st.cache
-        def get_UN_data():
-            AWS_BUCKET_URL = "https://streamlit-demo-data.s3-us-west-2.amazonaws.com"
-            df = pd.read_csv(AWS_BUCKET_URL + "/agri.csv.gz")
-            return df.set_index("Region")
+        st.title('Predict stock prices')
+        st.write("Here's our first attempt at using data to create a table:")
 
-        try:
-            df = get_UN_data()
-            countries = st.multiselect(
-                "Choose countries", list(df.index), ["China", "United States of America"]
-            )
-            if not countries:
-                st.error("Please select at least one country.")
-            else:
-                data = df.loc[countries]
-                data /= 1000000.0
-                st.write("### Gross Agricultural Production ($B)", data.sort_index())
+        st.write('Showing predicted prices for some companies')
 
-                data = data.T.reset_index()
-                data = pd.melt(data, id_vars=["index"]).rename(
-                    columns={"index": "year", "value": "Gross Agricultural Product ($B)"}
-                )
-                chart = (
-                    alt.Chart(data)
-                        .mark_area(opacity=0.3)
-                        .encode(
-                        x="year:T",
-                        y=alt.Y("Gross Agricultural Product ($B):Q", stack=None),
-                        color="Region:N",
-                    )
-                )
-                st.altair_chart(chart, use_container_width=True)
-        except urllib.error.URLError as e:
-            st.error(
-                """
-                **This demo requires internet access.**
+        company_names = st.multiselect('Choose company name(s):', sorted(COMPANY_NAMES_TO_STOCK_NAMES.keys()),
+                                       default=[sorted(COMPANY_NAMES_TO_STOCK_NAMES.keys())[0]])
+        stock_names = create_list_of_stock_names(company_names)
+        data_predicted_prices = load_data_for_predicted_prices_plot(stock_names)
 
-                Connection error: %s
-            """
-                % e.reason
-            )
+        highlight_predicted_prices = alt.selection(type='single', on='mouseover',
+                                                   fields=['symbol'], nearest=True)
+
+        chart_predicted_prices = alt.Chart(data_predicted_prices).mark_line().encode(
+            x='date:T',
+            y='predicted_price:Q',
+            color='symbol:N',
+            strokeDash='symbol:N',
+            tooltip=['symbol', 'date', 'predicted_price'],
+        )
+
+        points_predicted_prices = chart_predicted_prices.mark_circle().encode(
+            opacity=alt.value(0)
+        ).add_selection(
+            highlight_predicted_prices
+        )
+
+        lines_predicted_prices = chart_predicted_prices.mark_line().encode(
+            size=alt.condition(~highlight_predicted_prices, alt.value(1), alt.value(3))
+        )
+
+        layer_predicted_prices = (points_predicted_prices + lines_predicted_prices).interactive()
+        st.altair_chart(layer_predicted_prices, use_container_width=True)
+
+        st.write('Showing actual and predicted prices for a company')
+
+        company_name = st.selectbox('Choose company name:', sorted(COMPANY_NAMES_TO_STOCK_NAMES.keys()))
+        stock_name = COMPANY_NAMES_TO_STOCK_NAMES[company_name]
+        data_predicted_actual_prices = load_data_for_predicted_actual_prices_plot(stock_name)
+
+        nearest_predicted_actual_prices = alt.selection(type='single', nearest=True, on='mouseover',
+                                                        fields=['date'], empty='none')
+
+        line = alt.Chart(data_predicted_actual_prices).mark_line(interpolate='basis').encode(
+            x='date:T',
+            y='price:Q',
+            color='price_type:N'
+        )
+
+        selectors_predicted_actual_prices = alt.Chart(data_predicted_actual_prices).mark_point().encode(
+            x='date:T',
+            opacity=alt.value(0),
+        ).add_selection(
+            nearest_predicted_actual_prices
+        )
+
+        points_predicted_actual_prices = line.mark_point().encode(
+            opacity=alt.condition(nearest_predicted_actual_prices, alt.value(1), alt.value(0))
+        )
+
+        text_predicted_actual_prices = line.mark_text(align='left', dx=10, dy=-10).encode(
+            text=alt.condition(nearest_predicted_actual_prices, 'price:Q', alt.value(' '))
+        )
+
+        rules_predicted_actual_prices = alt.Chart(data_predicted_actual_prices).mark_rule(color='#f63366').encode(
+            x='date:T',
+        ).transform_filter(
+            nearest_predicted_actual_prices
+        )
+
+        layer_predicted_actual_prices = alt.layer(
+            line, selectors_predicted_actual_prices, points_predicted_actual_prices,
+            rules_predicted_actual_prices, text_predicted_actual_prices
+        ).interactive()
+
+        st.altair_chart(layer_predicted_actual_prices, use_container_width=True)
 
 
 if __name__ == "__main__":

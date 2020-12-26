@@ -167,7 +167,7 @@ def main():
                     The prediction will be built in 2017. Note that prices have been adjusted for dividends 
                     and splits. To demonstrate how data looks like, you can select any of them.''')
 
-        option = st.selectbox("Choose company name:", ["Cern", "IBM", "Yandex", "Ford", "American Airlines Group"])
+        option = st.selectbox("Choose company name:", sorted(COMPANY_NAMES_TO_STOCK_NAMES.keys()))
         df = get_data_frame_from_tigger(COMPANY_NAMES_TO_STOCK_NAMES[option])
 
         st.markdown('''There you can see the head of the dataset:''')

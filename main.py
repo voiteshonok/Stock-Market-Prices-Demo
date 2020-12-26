@@ -1,32 +1,26 @@
 import os
-import datetime
-import numpy as np
 import pandas as pd
-import time
 import datetime
 import joblib
 import xgboost
-from matplotlib import pyplot as plt
-import plotly as py
-import plotly.io as pio
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 import streamlit as st
 import altair as alt
 
-
 DATA_PATH = 'data/'
 MODELS_PATH = 'models/'
 
-COMPANY_NAMES_TO_STOCK_NAMES = {'Cern': 'cern', 'IBM': 'ibm', 'Yandex': 'yndx'}
+COMPANY_NAMES_TO_STOCK_NAMES = {'Cern': 'cern', 'IBM': 'ibm', 'Yandex': 'yndx', 'Ford': 'f',
+                                'American Airlines': 'aal'}
 
 
 def get_data_frame_from_tigger(ETF_NAME):
-    ETF_DIRECTORY = "data"
-    df = pd.read_csv(os.path.join(ETF_DIRECTORY, ETF_NAME.lower() + '.us.txt'), sep=',')
+    df = pd.read_csv(os.path.join(DATA_PATH, ETF_NAME.lower() + '.us.txt'), sep=',')
     df["Date"] = pd.to_datetime(df["Date"])
     df = df[(df["Date"] >= datetime.datetime(2010, 1, 1))]
     df = df[(df["Date"] <= datetime.datetime(2017, 12, 31))]
+    df = df.drop(columns="OpenInt")
     df.set_index(pd.Series(range(0, len(df))), inplace=True)
     return df
 
@@ -80,6 +74,7 @@ def get_processed_test_data(df):
 
     return test_df
 
+
 def load_company_model(stock_name):
     model = joblib.load(MODELS_PATH + stock_name + '_model.pkl')
     return model
@@ -88,6 +83,7 @@ def load_company_model(stock_name):
 def load_company_data(stock_name):
     df = pd.read_csv(DATA_PATH + stock_name + '.us.txt', parse_dates=['Date'])
     return df
+
 
 def load_data_for_predicted_prices_plot(stock_names: list):
     data = pd.DataFrame(columns=['symbol', 'date', 'predicted_price', 'actual_price'])
@@ -145,39 +141,45 @@ def main():
         df = get_data_frame_from_tigger(ETF_NAME)
 
         st.header("Introduction")
+        st.markdown('''The stock market is known as a place where people can make a fortune if they can crack the mantra
+                    to successfully predict stock prices. The main goal of this demo is trying to do it using machine 
+                    learning. The reason is clear - it will be useful to every business that is associated with the 
+                    stock market.''')
 
-        st.subheader("Business task")
-        st.markdown("")
+        st.subheader('''Business task''')
+        st.markdown('''Select the most promising companies based on the predicted growth in stock prices for 2017.''')
+
+        st.subheader('''Mathematical task''')
+        st.markdown('''Predict the stock price of a specific company based on the price history for 
+        the period from 2010 to 2016. Select the fastest-growing ones to the top.''')
 
         st.subheader("Dataset")
         st.markdown('''We will use the [Huge Stock Market Dataset]
-            (https://www.kaggle.com/borismarjanovic/price-volume-data-for-all-us-stocks-etfs). 
-            High-quality financial data is expensive to acquire. Therefore, such data is rarely 
-            shared for free. The full historical daily prices and volume data for all US-based 
-            stocks and ETFs trading on the NYSE, NASDAQ, and NYSE MKT are provided. The dataset 
-            includes a lot of different companies. So, to show how our model works, we chose 
-            only some of them: Ford, Yandex, IBM, etc.''')
+                    (https://www.kaggle.com/borismarjanovic/price-volume-data-for-all-us-stocks-etfs). 
+                    High-quality financial data is expensive to acquire. Therefore, such data is rarely 
+                    shared for free. The full historical daily prices and volume data for all US-based 
+                    stocks and ETFs trading on the NYSE, NASDAQ, and NYSE MKT are provided. The dataset 
+                    includes a lot of different companies. So, to show how our model works, we chose 
+                    only some of them: Ford, Yandex, IBM, etc.''')
 
         st.subheader("Content")
         st.markdown('''The data is presented in CSV format as follows: Date, Open, High, Low, 
-            Close, Volume, OpenInt. We will train the model on data from 2010 to 2016 because 
-            other data is way too old and has no significant information for the 2010s decade. 
-            The prediction will be built in 2017. Note that prices have been adjusted for dividends 
-            and splits. To demonstrate how data looks like, we will select CERN. There you can see 
-            the head of the dataset:''')
+                    Close, Volume. We will train the model on data from 2010 to 2016 because 
+                    other data is way too old and has no significant information for the 2010s decade. 
+                    The prediction will be built in 2017. Note that prices have been adjusted for dividends 
+                    and splits. To demonstrate how data looks like, we will select CERN. There you can see 
+                    the head of the dataset:''')
 
         st.dataframe(df.head())
-        st.write("Let's analyze the description. This is the structure. It has ‘Date’ as the index feature.\n"
-                 "‘High’ denotes the highest value of the day. ‘Low’ denotes the lowest. ‘Open’ is the opening\n"
-                 "Price and ‘Close’ is the closing for that Date. Now, sometimes close values are regulated\n"
-                 "by the companies. So the final value is the ‘Adj Close’ which is the same as ‘Close’ Value\n"
-                 "if the stock price is not regulated. ‘Volume’ is the amount of Stock of that company traded\n"
-                 "on that date.")
+        st.markdown('''Let's analyze the description. This is the structure. It has ‘Date’ as the index feature. 
+                    ‘High’ denotes the highest value of the day. ‘Low’ denotes the lowest. ‘Open’ is the opening 
+                    Price and ‘Close’ is the closing for that Date. Now, sometimes close values are regulated by the companies.
+                    ‘Volume’ is the amount of Stock of that company traded on that date.''')
 
         st.subheader("Plotting dataset")
         st.markdown("On the chart below you can see how CERN stock prices changed from 2010 to 2016.")
         df_intro = df[["Date", "Open", "High", "Low", "Close"]]
-        df_intro = df_intro[(df["Date"] <= datetime.datetime(2011, 12, 31))]
+        df_intro = df_intro[(df["Date"] <= datetime.datetime(2016, 12, 31))]
         df_intro.set_index("Date", inplace=True)
         st.line_chart(df_intro)
 
@@ -194,9 +196,9 @@ def main():
                see sample prices from the data frame and also few statistics about each column e.g. min/max values,
                 standard deviation etc.''')
 
-        option = st.selectbox("What company ? ", ["CERN", "IBM", "YNDX"])
+        option = st.selectbox("Choose company name:", sorted(COMPANY_NAMES_TO_STOCK_NAMES.keys()))
 
-        df = get_data_frame_from_tigger(option)
+        df = get_data_frame_from_tigger(COMPANY_NAMES_TO_STOCK_NAMES[option])
 
         if st.checkbox("Show Head"):
             st.dataframe(df.head())
@@ -226,9 +228,9 @@ def main():
              a certain period of time e.g. daily. It is such a simple but often overlooked indicator.
               *Volume* is so important because it basically represents the activity in stock trading.
                Higher volume value indicates higher interests in trading a stock.''')
+
         st.markdown('*2012-2013*')
 
-        # fig = go.Figure(go.Bar(x=df.Date, y=df.Volume, name='Volume', marker_color='red'))
         df['Date'] = pd.to_datetime(df['Date'])
         fig = go.Figure(
             go.Bar(x=df[(df['Date'].dt.year >= 2012) & (df['Date'].dt.year <= 2013)].Date,
@@ -305,6 +307,7 @@ def main():
                         lowest/highest prices traded in last 14 days.''')
         st.markdown('''This  **%𝐾**  stochastic is often referred as the *"slow stochastic indicator".
                         There is also a *"fast stochastic indicator" that can be obtained as:''')
+
         st.latex(r'''\%D = SMA_{3}(\%K)''')
 
         stochs = stochastic(df, k=14, d=3)
@@ -317,10 +320,10 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
 
     if nav == "Prediction":
-        st.title('Predict stock prices')
-        st.write("Here's our first attempt at using data to create a table:")
+        st.header('Predict stock prices')
+        st.markdown("Let's see how trained models work for a range of companies.")
 
-        st.write('Showing predicted prices for some companies')
+        st.markdown('This plot shows predicted prices for companies you choose from 01-11-2016 to 31-10-2017.')
 
         company_names = st.multiselect('Choose company name(s):', sorted(COMPANY_NAMES_TO_STOCK_NAMES.keys()),
                                        default=[sorted(COMPANY_NAMES_TO_STOCK_NAMES.keys())[0]])
@@ -351,7 +354,8 @@ def main():
         layer_predicted_prices = (points_predicted_prices + lines_predicted_prices).interactive()
         st.altair_chart(layer_predicted_prices, use_container_width=True)
 
-        st.write('Showing actual and predicted prices for a company')
+        st.markdown('''This plot shows actual and predicted prices for a company you choose from 01-11-2016 to 
+        31-10-2017. You can easily compare actual and predicted prices for a day. ''')
 
         company_name = st.selectbox('Choose company name:', sorted(COMPANY_NAMES_TO_STOCK_NAMES.keys()))
         stock_name = COMPANY_NAMES_TO_STOCK_NAMES[company_name]
